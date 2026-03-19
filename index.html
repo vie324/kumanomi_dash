@@ -632,7 +632,7 @@
             /* プルリフレッシュインジケーター */
             .pull-indicator {
                 position: fixed;
-                top: 56px;
+                top: 98px;
                 left: 50%;
                 transform: translateX(-50%) translateY(-40px);
                 z-index: 45;
@@ -783,6 +783,69 @@
             width: 64px; height: 64px; border-radius: 20px; margin-bottom: 16px;
             background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.04));
             display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Store Tab Bar */
+        .store-tab-bar {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding: 8px 16px;
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
+        }
+        .store-tab-bar::-webkit-scrollbar { display: none; }
+        .store-tab {
+            flex: 0 0 auto;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            background: transparent;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+            white-space: nowrap;
+            scroll-snap-align: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .store-tab:hover {
+            color: #f97316;
+            background: rgba(249,115,22,0.06);
+        }
+        .store-tab:active {
+            transform: scale(0.95);
+        }
+        .store-tab.active {
+            color: #fff;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(249,115,22,0.3);
+        }
+        .dark .store-tab {
+            color: #64748b;
+        }
+        .dark .store-tab:hover {
+            color: #fb923c;
+            background: rgba(249,115,22,0.1);
+        }
+        .dark .store-tab.active {
+            color: #fff;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+        }
+        .store-tab-container {
+            border-bottom: 1px solid rgba(249,115,22,0.08);
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .dark .store-tab-container {
+            background: rgba(31,18,8,0.6);
+            border-color: rgba(249,115,22,0.1);
         }
     </style>
 </head>
@@ -1156,7 +1219,32 @@
         // 設定・定数
         // ========================================
 
-        // 店舗マスタ（サーバーから動的に取得）
+        // 店舗マスタ（サーバーから動的に取得、フォールバック用デフォルト店舗リスト付き）
+        const DEFAULT_STORES = [
+            { id: 'omiya', name: '大宮駅前院' },
+            { id: 'kawaguchi', name: 'Harisshu川口駅前院' },
+            { id: 'ageo', name: '上尾駅前院' },
+            { id: 'shinjuku', name: 'Harisshu新宿西口院' },
+            { id: 'soka', name: '草加院' },
+            { id: 'ario-ageo', name: 'アリオ上尾院' },
+            { id: 'warabi', name: '蕨川口芝院' },
+            { id: 'amanuma', name: '天沼院' },
+            { id: 'koshigaya', name: '越谷駅前院' },
+            { id: 'kawagoe', name: '川越駅前院' },
+            { id: 'fujimino', name: 'ふじみ野院' },
+            { id: 'ikebukuro', name: '池袋東口院' },
+            { id: 'shin-misato', name: '新三郷院' },
+            { id: 'kita-urawa', name: '北浦和駅前院' },
+            { id: 'aeon-ageo', name: 'イオンモール上尾院' },
+            { id: 'ario-washinomiya', name: 'アリオ鷲宮院' },
+            { id: 'unicus-kounosu', name: 'ウニクス鴻巣院' },
+            { id: 'urawa-corso', name: '浦和コルソ院' },
+            { id: 'nitto-kumagaya', name: 'ニットーモール熊谷院' },
+            { id: 'minami-koshigaya', name: '南越谷駅前院' },
+            { id: 'aeon-kasukabe', name: 'イオンモール春日部院' },
+            { id: 'musashi-urawa', name: '武蔵浦和駅前院' },
+            { id: 'narimasu', name: '成増駅前院' },
+        ];
         let serverStores = [];
 
         // 統合 Google Apps Script URL（全機能で共有・1つのスプレッドシートで管理）
@@ -10675,24 +10763,7 @@
                                 {/* 以下はカウンセリング中は非表示 */}
                                 {currentView !== 'counseling' && (
                                     <>
-                                        {/* 店舗セレクター */}
-                                        {(() => {
-                                            const visibleStores = isStaffMode
-                                                ? (memberData.stores || []).filter(s => currentAccess.storeIds.includes(s.id))
-                                                : (memberData.stores || []);
-                                            return visibleStores.length > 1 ? (
-                                                <select
-                                                    value={activeStoreId}
-                                                    onChange={(e) => setActiveStoreId(e.target.value)}
-                                                    className="px-2 md:px-3 py-1.5 border border-sise-200 rounded-xl text-xs font-semibold focus:border-sise-400 focus:ring-2 focus:ring-sise-400/20 outline-none bg-sise-50/60 text-sise-700"
-                                                >
-                                                    <option value="all">全店舗</option>
-                                                    {visibleStores.map(s => (
-                                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                                    ))}
-                                                </select>
-                                            ) : null;
-                                        })()}
+                                        {/* 店舗セレクター（ヘッダーdropdown廃止、タブバーに移行） */}
                                         <button
                                             onClick={(e) => {
                                                 const icon = e.currentTarget.querySelector('svg');
@@ -10721,6 +10792,31 @@
                         </div>
                     </header>
 
+                    {/* 店舗タブバー */}
+                    {currentView !== 'counseling' && (() => {
+                        const apiStores = isStaffMode
+                            ? (memberData.stores || []).filter(s => currentAccess.storeIds.includes(s.id))
+                            : (memberData.stores || []);
+                        const visibleStores = apiStores.length > 0 ? apiStores : DEFAULT_STORES;
+                        return (
+                            <div className="fixed top-14 md:top-16 left-0 right-0 z-40 store-tab-container">
+                                <div className="store-tab-bar lg:pl-56">
+                                    <button
+                                        className={`store-tab ${activeStoreId === 'all' ? 'active' : ''}`}
+                                        onClick={() => setActiveStoreId('all')}
+                                    >全店舗</button>
+                                    {visibleStores.map(s => (
+                                        <button
+                                            key={s.id}
+                                            className={`store-tab ${activeStoreId === s.id ? 'active' : ''}`}
+                                            onClick={() => setActiveStoreId(s.id)}
+                                        >{s.name}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* プルトゥリフレッシュ インジケーター */}
                     <div className={`pull-indicator ${pullState.pulling ? 'visible' : ''} ${pullState.refreshing ? 'refreshing' : ''}`}
                         style={pullState.pulling ? {transform: `translateX(-50%) translateY(${Math.min(pullState.distance * 0.3, 18)}px)`, opacity: Math.min(pullState.distance / 60, 1)} : undefined}>
@@ -10739,7 +10835,7 @@
                     )}
 
                     {/* Sidebar (Desktop) - カウンセリング中は非表示 */}
-                    <aside className={`fixed top-14 md:top-16 left-0 bottom-0 w-56 glass-panel z-40 transform transition-transform duration-300 ease-out ${currentView === 'counseling' ? '-translate-x-full' : 'lg:translate-x-0'} ${isSidebarOpen && currentView !== 'counseling' ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <aside className={`fixed left-0 bottom-0 w-56 glass-panel z-40 transform transition-transform duration-300 ease-out ${currentView === 'counseling' ? '-translate-x-full' : 'lg:translate-x-0'} ${isSidebarOpen && currentView !== 'counseling' ? 'translate-x-0' : '-translate-x-full'}`} style={{top: currentView === 'counseling' ? '56px' : '98px'}}>
                         <nav className="p-3 space-y-0.5 mt-2">
                             {navItems.map((item) => (
                                 <button
@@ -10816,7 +10912,7 @@
                     </nav>
 
                     {/* Main Content */}
-                    <main className={`pt-14 md:pt-16 min-h-screen relative z-10 transition-all duration-300 ${currentView === 'counseling' ? '' : 'lg:pl-56'}`}>
+                    <main className={`min-h-screen relative z-10 transition-all duration-300 ${currentView === 'counseling' ? 'pt-14 md:pt-16' : 'lg:pl-56'}`} style={currentView !== 'counseling' ? {paddingTop: '98px'} : undefined}>
                         <div className={`px-3 py-2 md:p-5 lg:p-8 max-w-7xl mx-auto ${currentView === 'counseling' ? 'pb-4' : 'pb-24 md:pb-8'}`}>
                             <ViewTransition viewKey={currentView}>
                                 {renderView()}
