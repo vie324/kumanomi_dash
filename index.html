@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>si'se - 整体院経営ダッシュボード</title>
+    <title>くまのみ整体院 - 経営ダッシュボード</title>
 
     <!-- Google Fonts (非ブロッキング) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,7 +33,7 @@
     <!-- QR Code Generator -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 
-    <!-- Custom Config for Tailwind (si'se Theme - Enhanced) -->
+    <!-- Custom Config for Tailwind (Kumanomi Theme - Orange Clownfish) -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -41,17 +41,17 @@
                 extend: {
                     colors: {
                         sise: {
-                            50: '#f0faf4',
-                            100: '#dbf2e3',
-                            200: '#b9e5ca',
-                            300: '#88d1a8',
-                            400: '#55b87f',
-                            500: '#33a065',
-                            600: '#238050',
-                            700: '#1d6641',
-                            800: '#1a5136',
-                            900: '#16432d',
-                            950: '#0b2519',
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            200: '#fed7aa',
+                            300: '#fdba74',
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                            800: '#9a3412',
+                            900: '#7c2d12',
+                            950: '#431407',
                         },
                         coral: {
                             50: '#fff5f2',
@@ -63,11 +63,11 @@
                             600: '#e63e1a',
                         },
                         accent: {
-                            50: '#fefce8',
-                            100: '#fef9c3',
-                            400: '#facc15',
-                            500: '#eab308',
-                            600: '#ca8a04',
+                            50: '#fffbeb',
+                            100: '#fef3c7',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
                         }
                     },
                     fontFamily: {
@@ -113,8 +113,8 @@
                             '100%': { backgroundPosition: '200% 0' },
                         },
                         'glow-pulse': {
-                            '0%, 100%': { boxShadow: '0 0 20px rgba(51,160,101,0.15)' },
-                            '50%': { boxShadow: '0 0 40px rgba(51,160,101,0.3)' },
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(249,115,22,0.15)' },
+                            '50%': { boxShadow: '0 0 40px rgba(249,115,22,0.3)' },
                         },
                         'progress-fill': {
                             '0%': { width: '0%' },
@@ -198,8 +198,8 @@
         }
 
         body {
-            background-color: #f4f8f5;
-            color: #1a2e23;
+            background-color: #fffaf5;
+            color: #292524;
             font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
             margin: 0;
             padding: 0;
@@ -208,28 +208,28 @@
         }
 
         /* Dark Mode */
-        .dark body { background-color: #0a1610; color: #e2e8f0; }
-        .dark .bg-white { background-color: #12231b !important; }
-        .dark .bg-slate-50 { background-color: #0d1c14 !important; }
+        .dark body { background-color: #1a0e04; color: #e2e8f0; }
+        .dark .bg-white { background-color: #1f1208 !important; }
+        .dark .bg-slate-50 { background-color: #170d03 !important; }
         .dark .text-slate-900 { color: #f1f5f9 !important; }
         .dark .text-slate-800 { color: #e2e8f0 !important; }
         .dark .text-slate-700 { color: #cbd5e1 !important; }
         .dark .text-slate-600 { color: #94a3b8 !important; }
-        .dark .border-slate-200 { border-color: #1e3a2c !important; }
-        .dark .border-sise-200 { border-color: #1d6641 !important; }
-        .dark .glass-panel { background: rgba(18,35,27,0.9); border-color: rgba(51,160,101,0.15); }
-        .dark .glass-card { background: rgba(18,35,27,0.7); border-color: rgba(51,160,101,0.12); }
+        .dark .border-slate-200 { border-color: #2d1a08 !important; }
+        .dark .border-sise-200 { border-color: #c2410c !important; }
+        .dark .glass-panel { background: rgba(31,18,8,0.9); border-color: rgba(249,115,22,0.15); }
+        .dark .glass-card { background: rgba(31,18,8,0.7); border-color: rgba(249,115,22,0.12); }
         /* Dark mode: form inputs */
         .dark input, .dark select, .dark textarea {
-            background-color: #12231b !important;
+            background-color: #1f1208 !important;
             color: #e2e8f0 !important;
-            border-color: #1e3a2c !important;
+            border-color: #2d1a08 !important;
         }
         .dark input::placeholder, .dark textarea::placeholder {
-            color: #4a6b58 !important;
+            color: #6b4a28 !important;
         }
         .dark input:focus, .dark select:focus, .dark textarea:focus {
-            border-color: #33a065 !important;
+            border-color: #f97316 !important;
         }
         /* Dark mode: status badges */
         .dark .bg-green-50, .dark .bg-green-100 { background-color: rgba(34,197,94,0.12) !important; }
@@ -239,29 +239,29 @@
         .dark .bg-orange-50, .dark .bg-orange-100 { background-color: rgba(249,115,22,0.12) !important; }
         .dark .bg-purple-50, .dark .bg-purple-100 { background-color: rgba(168,85,247,0.12) !important; }
         .dark .bg-violet-50, .dark .bg-violet-100, .dark .bg-violet-50\/50, .dark .bg-violet-50\/40 { background-color: rgba(139,92,246,0.12) !important; }
-        .dark .bg-sise-50 { background-color: rgba(51,160,101,0.08) !important; }
+        .dark .bg-sise-50 { background-color: rgba(249,115,22,0.08) !important; }
         .dark .bg-slate-100 { background-color: rgba(148,163,184,0.08) !important; }
         /* Dark mode: chart tooltip */
         .dark .recharts-tooltip-wrapper .recharts-default-tooltip {
-            background: #12231b !important;
-            border-color: #1e3a2c !important;
+            background: #1f1208 !important;
+            border-color: #2d1a08 !important;
             color: #e2e8f0 !important;
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #b9e5ca; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #88d1a8; }
-        .dark ::-webkit-scrollbar-thumb { background: #1d6641; }
-        .dark ::-webkit-scrollbar-thumb:hover { background: #238050; }
+        ::-webkit-scrollbar-thumb { background: #fed7aa; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #fdba74; }
+        .dark ::-webkit-scrollbar-thumb { background: #c2410c; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
 
         /* Glass Panel */
         .glass-panel {
             background: rgba(255,255,255,0.88);
             backdrop-filter: blur(24px) saturate(1.8);
             -webkit-backdrop-filter: blur(24px) saturate(1.8);
-            border: 1px solid rgba(51,160,101,0.1);
+            border: 1px solid rgba(249,115,22,0.1);
         }
 
         /* Glass Card */
@@ -269,21 +269,21 @@
             background: rgba(255,255,255,0.72);
             backdrop-filter: blur(20px) saturate(1.5);
             -webkit-backdrop-filter: blur(20px) saturate(1.5);
-            border: 1px solid rgba(51,160,101,0.08);
+            border: 1px solid rgba(249,115,22,0.08);
             border-radius: 20px;
             transition: all 0.4s cubic-bezier(0.16,1,0.3,1);
             position: relative;
         }
         .glass-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 16px 48px -12px rgba(51,160,101,0.18);
-            border-color: rgba(51,160,101,0.2);
+            box-shadow: 0 16px 48px -12px rgba(249,115,22,0.18);
+            border-color: rgba(249,115,22,0.2);
         }
         .glass-card-glow {
             background: rgba(255,255,255,0.8);
             backdrop-filter: blur(20px) saturate(1.6);
             -webkit-backdrop-filter: blur(20px) saturate(1.6);
-            border: 1px solid rgba(51,160,101,0.12);
+            border: 1px solid rgba(249,115,22,0.12);
             border-radius: 20px;
             transition: all 0.5s cubic-bezier(0.16,1,0.3,1);
             position: relative;
@@ -294,17 +294,17 @@
             position: absolute;
             top: 0; left: -100%; right: -100%;
             height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(51,160,101,0.5), transparent);
+            background: linear-gradient(90deg, transparent, rgba(249,115,22,0.5), transparent);
             animation: shimmer 3s ease-in-out infinite;
         }
-        .dark .glass-card-glow { background: rgba(18,35,27,0.8); border-color: rgba(51,160,101,0.18); }
+        .dark .glass-card-glow { background: rgba(31,18,8,0.8); border-color: rgba(249,115,22,0.18); }
 
         /* Animated mesh background */
         .bg-mesh {
             background-image:
-                radial-gradient(at 15% 15%, rgba(51,160,101,0.08) 0px, transparent 55%),
-                radial-gradient(at 85% 25%, rgba(85,184,127,0.06) 0px, transparent 55%),
-                radial-gradient(at 50% 80%, rgba(136,209,168,0.05) 0px, transparent 55%),
+                radial-gradient(at 15% 15%, rgba(249,115,22,0.08) 0px, transparent 55%),
+                radial-gradient(at 85% 25%, rgba(251,146,60,0.06) 0px, transparent 55%),
+                radial-gradient(at 50% 80%, rgba(253,186,116,0.05) 0px, transparent 55%),
                 radial-gradient(at 80% 80%, rgba(255,87,51,0.03) 0px, transparent 55%);
         }
 
@@ -317,8 +317,8 @@
             pointer-events: none;
             z-index: 0;
         }
-        .bg-orb-1 { width: 400px; height: 400px; background: rgba(51,160,101,0.12); top: -100px; right: -100px; animation: float 8s ease-in-out infinite; }
-        .bg-orb-2 { width: 300px; height: 300px; background: rgba(85,184,127,0.08); bottom: 10%; left: -80px; animation: float-slow 10s ease-in-out infinite; }
+        .bg-orb-1 { width: 400px; height: 400px; background: rgba(249,115,22,0.12); top: -100px; right: -100px; animation: float 8s ease-in-out infinite; }
+        .bg-orb-2 { width: 300px; height: 300px; background: rgba(251,146,60,0.08); bottom: 10%; left: -80px; animation: float-slow 10s ease-in-out infinite; }
         .bg-orb-3 { width: 250px; height: 250px; background: rgba(255,127,92,0.06); top: 40%; right: 10%; animation: float 12s ease-in-out infinite reverse; }
 
         @keyframes float {
@@ -332,7 +332,7 @@
 
         /* Gradient text */
         .gradient-text {
-            background: linear-gradient(135deg, #33a065 0%, #238050 50%, #55b87f 100%);
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #fb923c 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -344,7 +344,7 @@
         }
         .card-hover:hover {
             transform: translateY(-4px);
-            box-shadow: 0 20px 50px -15px rgba(51,160,101,0.2);
+            box-shadow: 0 20px 50px -15px rgba(249,115,22,0.2);
         }
 
         /* KPI card gradient borders */
@@ -357,7 +357,7 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
-            background: linear-gradient(90deg, var(--kpi-color, #33a065), transparent);
+            background: linear-gradient(90deg, var(--kpi-color, #f97316), transparent);
             opacity: 0;
             transition: opacity 0.3s ease;
         }
@@ -368,7 +368,7 @@
             bottom: -50%; right: -20%;
             width: 120px; height: 120px;
             border-radius: 50%;
-            background: var(--kpi-color, rgba(51,160,101,0.04));
+            background: var(--kpi-color, rgba(249,115,22,0.04));
             opacity: 0;
             transition: opacity 0.5s ease;
             pointer-events: none;
@@ -379,7 +379,7 @@
         .progress-bar-animated {
             height: 6px;
             border-radius: 3px;
-            background: rgba(51,160,101,0.1);
+            background: rgba(249,115,22,0.1);
             overflow: hidden;
             position: relative;
         }
@@ -399,8 +399,8 @@
 
         /* Today highlight card */
         .today-card {
-            background: linear-gradient(135deg, rgba(51,160,101,0.06) 0%, rgba(85,184,127,0.04) 50%, rgba(136,209,168,0.02) 100%);
-            border: 1px solid rgba(51,160,101,0.12);
+            background: linear-gradient(135deg, rgba(249,115,22,0.06) 0%, rgba(251,146,60,0.04) 50%, rgba(253,186,116,0.02) 100%);
+            border: 1px solid rgba(249,115,22,0.12);
             border-radius: 20px;
             position: relative;
             overflow: hidden;
@@ -410,12 +410,12 @@
             position: absolute;
             top: 0; left: 0;
             width: 4px; height: 100%;
-            background: linear-gradient(180deg, #33a065, #55b87f, #88d1a8);
+            background: linear-gradient(180deg, #f97316, #fb923c, #fdba74);
             border-radius: 4px 0 0 4px;
         }
         .dark .today-card {
-            background: linear-gradient(135deg, rgba(51,160,101,0.08) 0%, rgba(18,35,27,0.6) 100%);
-            border-color: rgba(51,160,101,0.18);
+            background: linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(31,18,8,0.6) 100%);
+            border-color: rgba(249,115,22,0.18);
         }
 
         /* Store comparison bar */
@@ -424,7 +424,7 @@
             height: 32px;
             border-radius: 8px;
             overflow: hidden;
-            background: rgba(51,160,101,0.06);
+            background: rgba(249,115,22,0.06);
             transition: all 0.3s ease;
         }
         .store-bar:hover { transform: scaleX(1.01); }
@@ -475,12 +475,12 @@
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
         .skeleton {
-            background: linear-gradient(90deg, #e8f3ec 25%, #f0faf4 50%, #e8f3ec 75%);
+            background: linear-gradient(90deg, #ffedd5 25%, #fff7ed 50%, #ffedd5 75%);
             background-size: 200% 100%;
             animation: shimmer 1.8s ease-in-out infinite;
         }
         .dark .skeleton {
-            background: linear-gradient(90deg, #12231b 25%, #1e3a2c 50%, #12231b 75%);
+            background: linear-gradient(90deg, #1f1208 25%, #2d1a08 50%, #1f1208 75%);
             background-size: 200% 100%;
         }
         @keyframes shimmer {
@@ -493,16 +493,16 @@
             transition: background-color 0.2s ease;
         }
         .table-row-hover:hover {
-            background-color: rgba(51,160,101,0.06);
+            background-color: rgba(249,115,22,0.06);
         }
         .table-row-hover:nth-child(even) {
-            background-color: rgba(51,160,101,0.02);
+            background-color: rgba(249,115,22,0.02);
         }
         .table-row-hover:nth-child(even):hover {
-            background-color: rgba(51,160,101,0.06);
+            background-color: rgba(249,115,22,0.06);
         }
         .dark .table-row-hover:nth-child(even) {
-            background-color: rgba(51,160,101,0.04);
+            background-color: rgba(249,115,22,0.04);
         }
 
         /* Usage counter */
@@ -518,12 +518,12 @@
             background: rgba(255,255,255,0.92);
             backdrop-filter: blur(24px) saturate(1.8);
             -webkit-backdrop-filter: blur(24px) saturate(1.8);
-            border-top: 1px solid rgba(51,160,101,0.1);
+            border-top: 1px solid rgba(249,115,22,0.1);
             padding-bottom: env(safe-area-inset-bottom);
         }
         .dark .bottom-nav {
-            background: rgba(18,35,27,0.92);
-            border-color: rgba(51,160,101,0.15);
+            background: rgba(31,18,8,0.92);
+            border-color: rgba(249,115,22,0.15);
         }
         .bottom-nav-item {
             display: flex;
@@ -546,7 +546,7 @@
             transform: scale(0.88);
         }
         .bottom-nav-item.active {
-            color: #33a065;
+            color: #f97316;
         }
         .bottom-nav-item.active::before {
             content: '';
@@ -554,26 +554,26 @@
             top: 0; left: 50%;
             transform: translateX(-50%);
             width: 32px; height: 3px;
-            background: linear-gradient(90deg, #33a065, #55b87f);
+            background: linear-gradient(90deg, #f97316, #fb923c);
             border-radius: 0 0 6px 6px;
-            box-shadow: 0 2px 8px rgba(51,160,101,0.3);
+            box-shadow: 0 2px 8px rgba(249,115,22,0.3);
         }
         .bottom-nav-item.active .nav-icon-wrap {
-            background: linear-gradient(135deg, rgba(51,160,101,0.12), rgba(85,184,127,0.08));
+            background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(251,146,60,0.08));
             border-radius: 12px;
             padding: 4px 10px;
         }
 
         /* Gradient button */
         .btn-gradient {
-            background: linear-gradient(135deg, #33a065, #238050);
+            background: linear-gradient(135deg, #f97316, #ea580c);
             color: white;
             border: none;
-            box-shadow: 0 4px 16px -4px rgba(51,160,101,0.4);
+            box-shadow: 0 4px 16px -4px rgba(249,115,22,0.4);
             transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
         .btn-gradient:hover {
-            box-shadow: 0 8px 24px -4px rgba(51,160,101,0.5);
+            box-shadow: 0 8px 24px -4px rgba(249,115,22,0.5);
             transform: translateY(-1px);
         }
         .btn-gradient:active {
@@ -626,7 +626,7 @@
                 z-index: 1;
             }
             .dark .swipe-hint::after {
-                background: linear-gradient(90deg, transparent, rgba(18,35,27,0.8));
+                background: linear-gradient(90deg, transparent, rgba(31,18,8,0.8));
             }
 
             /* プルリフレッシュインジケーター */
@@ -684,7 +684,7 @@
         .recharts-tooltip-wrapper .recharts-default-tooltip {
             border-radius: 12px !important;
             box-shadow: 0 8px 32px -8px rgba(0,0,0,0.12) !important;
-            border: 1px solid rgba(51,160,101,0.1) !important;
+            border: 1px solid rgba(249,115,22,0.1) !important;
         }
 
         /* Smooth view transitions */
@@ -695,8 +695,8 @@
         /* Focus ring consistency for all inputs */
         input:focus, select:focus, textarea:focus {
             outline: none;
-            border-color: #33a065 !important;
-            box-shadow: 0 0 0 3px rgba(51,160,101,0.12);
+            border-color: #f97316 !important;
+            box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
         }
 
         /* Toast notification system */
@@ -713,8 +713,8 @@
             background: rgba(255,255,255,0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(51,160,101,0.15);
-            box-shadow: 0 8px 32px -8px rgba(0,0,0,0.12), 0 2px 8px rgba(51,160,101,0.08);
+            border: 1px solid rgba(249,115,22,0.15);
+            box-shadow: 0 8px 32px -8px rgba(0,0,0,0.12), 0 2px 8px rgba(249,115,22,0.08);
             font-size: 13px; font-weight: 600;
             animation: toast-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards;
             max-width: 360px;
@@ -722,8 +722,8 @@
         .toast.leaving { animation: toast-out 0.25s ease-in forwards; }
         .toast-success { color: #15803d; border-color: rgba(34,197,94,0.25); }
         .toast-error { color: #b91c1c; border-color: rgba(239,68,68,0.25); }
-        .toast-info { color: #1d6641; border-color: rgba(51,160,101,0.2); }
-        .dark .toast { background: rgba(18,35,27,0.95); border-color: rgba(51,160,101,0.2); }
+        .toast-info { color: #c2410c; border-color: rgba(249,115,22,0.2); }
+        .dark .toast { background: rgba(31,18,8,0.95); border-color: rgba(249,115,22,0.2); }
         @media (max-width: 768px) {
             .toast-container { top: 60px; right: 8px; left: 8px; }
             .toast { max-width: 100%; }
@@ -737,7 +737,7 @@
 
         /* Better focus-visible for keyboard navigation */
         *:focus-visible {
-            outline: 2px solid #33a065;
+            outline: 2px solid #f97316;
             outline-offset: 2px;
             border-radius: 8px;
         }
@@ -756,7 +756,7 @@
         /* Loading bar at top */
         .top-loading-bar {
             position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 9999;
-            background: linear-gradient(90deg, transparent, #33a065, #55b87f, transparent);
+            background: linear-gradient(90deg, transparent, #f97316, #fb923c, transparent);
             background-size: 200% 100%;
             animation: shimmer 1.2s linear infinite;
             opacity: 0; transition: opacity 0.2s;
@@ -781,47 +781,47 @@
         }
         .empty-state-icon {
             width: 64px; height: 64px; border-radius: 20px; margin-bottom: 16px;
-            background: linear-gradient(135deg, rgba(51,160,101,0.08), rgba(51,160,101,0.04));
+            background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.04));
             display: flex; align-items: center; justify-content: center;
         }
     </style>
 </head>
 <body>
     <div id="root">
-        <div id="loading-indicator" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(160deg, #f0faf4 0%, #e0f2e7 40%, #f4f8f5 100%); position: relative; overflow: hidden;">
-            <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(51,160,101,0.08);filter:blur(80px);top:-100px;right:-100px;animation:float 6s ease-in-out infinite;"></div>
-            <div style="position:absolute;width:250px;height:250px;border-radius:50%;background:rgba(85,184,127,0.06);filter:blur(60px);bottom:15%;left:-60px;animation:float-slow 8s ease-in-out infinite;"></div>
+        <div id="loading-indicator" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(160deg, #fff7ed 0%, #ffe8d5 40%, #fffaf5 100%); position: relative; overflow: hidden;">
+            <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(249,115,22,0.08);filter:blur(80px);top:-100px;right:-100px;animation:float 6s ease-in-out infinite;"></div>
+            <div style="position:absolute;width:250px;height:250px;border-radius:50%;background:rgba(251,146,60,0.06);filter:blur(60px);bottom:15%;left:-60px;animation:float-slow 8s ease-in-out infinite;"></div>
             <div style="position:absolute;width:180px;height:180px;border-radius:50%;background:rgba(255,127,92,0.04);filter:blur(50px);top:40%;right:20%;animation:float 10s ease-in-out infinite reverse;"></div>
             <div style="text-align: center; position: relative; z-index: 1;">
                 <!-- Logo Image (place your logo at /images/logo.png) -->
                 <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;">
                     <!-- Outer ring pulse -->
-                    <div style="position:absolute;inset:-10px;border-radius:50%;border:2px solid rgba(51,160,101,0.15);animation:logo-ring-pulse 2s ease-in-out infinite;"></div>
+                    <div style="position:absolute;inset:-10px;border-radius:50%;border:2px solid rgba(249,115,22,0.15);animation:logo-ring-pulse 2s ease-in-out infinite;"></div>
                     <!-- Logo image with fallback -->
                     <img
                         src="./images/logo.png"
-                        alt="si'se logo"
-                        style="width:120px;height:120px;object-fit:contain;border-radius:28px;animation:logo-float 3s ease-in-out infinite;filter:drop-shadow(0 20px 40px rgba(51,160,101,0.3));"
+                        alt="くまのみ整体院 logo"
+                        style="width:120px;height:120px;object-fit:contain;border-radius:28px;animation:logo-float 3s ease-in-out infinite;filter:drop-shadow(0 20px 40px rgba(249,115,22,0.3));"
                         onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
                     />
                     <!-- Fallback: text logo (shown if image fails to load) -->
-                    <div style="display:none;width:120px;height:120px;background:linear-gradient(135deg,#33a065 0%,#238050 60%,#55b87f 100%);border-radius:28px;align-items:center;justify-content:center;box-shadow:0 20px 60px -12px rgba(51,160,101,0.45),0 0 0 1px rgba(255,255,255,0.1) inset;animation:logo-float 3s ease-in-out infinite;">
-                        <span style="color:white;font-family:'Noto Sans JP',sans-serif;font-weight:800;font-size:36px;letter-spacing:0.02em;text-shadow:0 2px 8px rgba(0,0,0,0.15);">S</span>
+                    <div style="display:none;width:120px;height:120px;background:linear-gradient(135deg,#f97316 0%,#ea580c 60%,#fb923c 100%);border-radius:28px;align-items:center;justify-content:center;box-shadow:0 20px 60px -12px rgba(249,115,22,0.45),0 0 0 1px rgba(255,255,255,0.1) inset;animation:logo-float 3s ease-in-out infinite;">
+                        <span style="color:white;font-family:'Noto Sans JP',sans-serif;font-weight:800;font-size:30px;letter-spacing:0.02em;text-shadow:0 2px 8px rgba(0,0,0,0.15);">🐠</span>
                     </div>
                     <!-- Orbiting dots -->
                     <div style="position:absolute;top:50%;left:50%;width:140px;height:140px;margin:-70px 0 0 -70px;animation:logo-orbit 3s linear infinite;">
-                        <div style="position:absolute;top:0;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#55b87f;box-shadow:0 0 8px rgba(85,184,127,0.6);"></div>
+                        <div style="position:absolute;top:0;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#fb923c;box-shadow:0 0 8px rgba(251,146,60,0.6);"></div>
                     </div>
                     <div style="position:absolute;top:50%;left:50%;width:155px;height:155px;margin:-77.5px 0 0 -77.5px;animation:logo-orbit 4.5s linear infinite reverse;">
-                        <div style="position:absolute;top:0;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#b9e5ca;box-shadow:0 0 6px rgba(185,229,202,0.5);"></div>
+                        <div style="position:absolute;top:0;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#fed7aa;box-shadow:0 0 6px rgba(254,215,170,0.5);"></div>
                     </div>
                 </div>
                 <!-- Brand text -->
-                <p style="color:#16432d;font-size:28px;font-family:'Noto Sans JP',sans-serif;font-weight:800;letter-spacing:0.1em;animation:logo-text-in 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s both;">si'se</p>
-                <p style="color:#33a065;font-size:11px;font-family:'Noto Sans JP',sans-serif;margin-top:6px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;animation:logo-text-in 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s both;">Management Dashboard</p>
+                <p style="color:#7c2d12;font-size:24px;font-family:'Noto Sans JP',sans-serif;font-weight:800;letter-spacing:0.08em;animation:logo-text-in 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s both;">くまのみ整体院</p>
+                <p style="color:#f97316;font-size:11px;font-family:'Noto Sans JP',sans-serif;margin-top:6px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;animation:logo-text-in 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s both;">Management Dashboard</p>
                 <!-- Progress bar -->
-                <div style="width:120px;height:3px;background:rgba(51,160,101,0.12);border-radius:4px;margin:24px auto 0;overflow:hidden;animation:logo-text-in 0.6s ease 0.6s both;">
-                    <div style="width:40%;height:100%;background:linear-gradient(90deg,#33a065,#55b87f);border-radius:4px;animation:loading-progress 1.8s ease-in-out infinite;"></div>
+                <div style="width:120px;height:3px;background:rgba(249,115,22,0.12);border-radius:4px;margin:24px auto 0;overflow:hidden;animation:logo-text-in 0.6s ease 0.6s both;">
+                    <div style="width:40%;height:100%;background:linear-gradient(90deg,#f97316,#fb923c);border-radius:4px;animation:loading-progress 1.8s ease-in-out infinite;"></div>
                 </div>
             </div>
         </div>
@@ -855,12 +855,12 @@
            ============================================= */
         .cf-customer-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px;padding:16px;background:linear-gradient(135deg,#f0f9f4,#e8f7ee);border:1.5px solid rgba(42,157,94,.2);border-radius:16px}
         .cf-customer-bar input[type="text"]{flex:1;min-width:180px;padding:10px 14px;border:1.5px solid #d0e8d8;border-radius:10px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
-        .cf-customer-bar input[type="text"]:focus{border-color:#33a065}
+        .cf-customer-bar input[type="text"]:focus{border-color:#f97316}
         .cf-customer-bar select{flex:1;min-width:180px;padding:10px 14px;border:1.5px solid #d0e8d8;border-radius:10px;font-size:13px;outline:none;background:#fff;cursor:pointer}
         .cf-customer-bar .cf-btn{padding:10px 20px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
-        .cf-btn-primary{background:linear-gradient(135deg,#33a065,#238050);color:white}
-        .cf-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(51,160,101,.3)}
-        .cf-btn-secondary{background:#fff;color:#33a065;border:1.5px solid #33a065 !important}
+        .cf-btn-primary{background:linear-gradient(135deg,#f97316,#ea580c);color:white}
+        .cf-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(249,115,22,.3)}
+        .cf-btn-secondary{background:#fff;color:#f97316;border:1.5px solid #f97316 !important}
         .cf-btn-secondary:hover{background:#f0f9f4}
         .cf-customer-info{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid #e8e8e8;border-radius:12px}
         .cf-info-chip{font-size:12px;padding:4px 12px;border-radius:8px;background:#f5f5f5;color:#555;display:flex;align-items:center;gap:4px}
@@ -871,16 +871,16 @@
         .cf-section-body{padding:20px 24px}
         .cf-step-bar{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:24px;padding:10px 20px;background:rgba(255,255,255,.92);border:1px solid #eee;border-radius:12px}
         .cf-step{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#bbb;cursor:pointer;white-space:nowrap;transition:color .3s}
-        .cf-step.active{color:#238050}
-        .cf-step.done{color:#55b87f}
+        .cf-step.active{color:#ea580c}
+        .cf-step.done{color:#fb923c}
         .cf-step-num{width:24px;height:24px;border-radius:50%;border:2px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all .3s;flex-shrink:0}
-        .cf-step.active .cf-step-num{border-color:#33a065;background:#33a065;color:white}
-        .cf-step.done .cf-step-num{border-color:#55b87f;background:#55b87f;color:white}
+        .cf-step.active .cf-step-num{border-color:#f97316;background:#f97316;color:white}
+        .cf-step.done .cf-step-num{border-color:#fb923c;background:#fb923c;color:white}
         .cf-step-connector{width:40px;height:2px;background:#e0e0e0;margin:0 8px;flex-shrink:0;position:relative;overflow:hidden}
-        .cf-step-connector.filled{background:#55b87f}
+        .cf-step-connector.filled{background:#fb923c}
         .cf-concept-toggle{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;border:1.5px solid #ddd;background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:#888;transition:all .25s}
-        .cf-concept-toggle:hover{border-color:#88d1a8;color:#33a065}
-        .cf-concept-toggle.active{border-color:#33a065;background:#f0f9f4;color:#238050}
+        .cf-concept-toggle:hover{border-color:#fdba74;color:#f97316}
+        .cf-concept-toggle.active{border-color:#f97316;background:#f0f9f4;color:#ea580c}
         .cf-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
         .cf-check-card{background:#fff;border-radius:14px;padding:18px;border:1px solid rgba(42,157,94,.08)}
         .cf-check-card h4{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -888,7 +888,7 @@
         .cf-chk{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;border-radius:8px;transition:background .2s;user-select:none}
         .cf-chk:hover{background:rgba(42,157,94,.04)}
         .cf-chk-box{width:18px;height:18px;border:2px solid #ccc;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
-        .cf-chk.checked .cf-chk-box{border-color:#33a065;background:#33a065}
+        .cf-chk.checked .cf-chk-box{border-color:#f97316;background:#f97316}
         .cf-chk-check{width:12px;height:12px;opacity:0;color:white}.cf-chk.checked .cf-chk-check{opacity:1}
         .cf-tag{font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;font-weight:600;white-space:nowrap}
         .cf-tag-face{background:#f5f0e0;color:#8a7540}
@@ -899,17 +899,17 @@
         .cf-rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
         .cf-rec-card{background:#fff;border-radius:14px;border:2px solid #e8e8e8;overflow:hidden;transition:transform .3s,box-shadow .3s,border-color .2s}
         .cf-rec-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
-        .cf-rec-card.rec-selected{border-color:#33a065!important;box-shadow:0 0 0 3px rgba(51,160,101,.18),0 4px 16px rgba(0,0,0,.06)!important;transform:translateY(-2px)}
+        .cf-rec-card.rec-selected{border-color:#f97316!important;box-shadow:0 0 0 3px rgba(249,115,22,.18),0 4px 16px rgba(0,0,0,.06)!important;transform:translateY(-2px)}
         .cf-rec-card.rank-matsu{border-color:#b8a472}
-        .cf-rec-card.rank-take{border-color:#55b87f;box-shadow:0 0 0 2px rgba(42,157,94,.12)}
+        .cf-rec-card.rank-take{border-color:#fb923c;box-shadow:0 0 0 2px rgba(42,157,94,.12)}
         .cf-rec-card.rank-ume{border-color:#d0d0d0}
         .cf-rec-rank{padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:6px}
         .cf-rec-card.rank-matsu .cf-rec-rank{background:linear-gradient(135deg,#fff8e8,#f5f0e0);color:#8a7540}
-        .cf-rec-card.rank-take .cf-rec-rank{background:linear-gradient(135deg,#f0f9f4,#e8f7ee);color:#1d6641}
+        .cf-rec-card.rank-take .cf-rec-rank{background:linear-gradient(135deg,#f0f9f4,#e8f7ee);color:#c2410c}
         .cf-rec-card.rank-ume .cf-rec-rank{background:#f5f5f5;color:#888}
         .cf-rec-body{padding:14px}
         .cf-rec-plan-name{font-size:16px;font-weight:900;margin-bottom:4px}
-        .cf-rec-plan-freq{font-size:13px;font-weight:600;color:#238050;margin-bottom:8px}
+        .cf-rec-plan-freq{font-size:13px;font-weight:600;color:#ea580c;margin-bottom:8px}
         .cf-rec-plan-types{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
         .cf-rec-plan-desc{font-size:12px;color:#6b6b6b;line-height:1.7}
         .cf-graph-wrapper{background:#fff;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.08);border:1px solid rgba(42,157,94,.08);overflow:hidden;margin-bottom:24px}
@@ -926,8 +926,8 @@
         .cf-ci.active.c-orange{border-color:#d68c1a;background:#fdf5e8;color:#d68c1a}
         .cf-ci.active.c-teal{border-color:#2a8fa0;background:#edf7f9;color:#2a8fa0}
         .cf-ci.active.c-blue{border-color:#4a78c9;background:#eef3fc;color:#4a78c9}
-        .cf-ci.rec-highlight{box-shadow:0 0 0 2px #55b87f;animation:cfPulse 2s ease infinite}
-        @keyframes cfPulse{0%,100%{box-shadow:0 0 0 2px #55b87f}50%{box-shadow:0 0 0 4px rgba(77,184,126,.3)}}
+        .cf-ci.rec-highlight{box-shadow:0 0 0 2px #fb923c;animation:cfPulse 2s ease infinite}
+        @keyframes cfPulse{0%,100%{box-shadow:0 0 0 2px #fb923c}50%{box-shadow:0 0 0 4px rgba(77,184,126,.3)}}
         .cf-cc{width:18px;height:18px;border-radius:5px;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s}
         .cf-ci.active .cf-cc{border-color:currentColor}
         .cf-cl{width:22px;height:3px;border-radius:2px;flex-shrink:0}
@@ -953,23 +953,23 @@
         .cf-plan-card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);border:2px solid transparent;position:relative;transition:transform .3s,box-shadow .3s,border-color .4s}
         .cf-plan-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.1)}
         .cf-plan-card.popular{border-color:#b8a472}
-        .cf-plan-card.recommended{border-color:#55b87f}
-        .cf-plan-card.auto-rec{border-color:#33a065 !important;box-shadow:0 0 0 3px rgba(42,157,94,.15),0 4px 16px rgba(0,0,0,.08)}
+        .cf-plan-card.recommended{border-color:#fb923c}
+        .cf-plan-card.auto-rec{border-color:#f97316 !important;box-shadow:0 0 0 3px rgba(42,157,94,.15),0 4px 16px rgba(0,0,0,.08)}
         .cf-plan-card.auto-rec .cf-plan-header{background:linear-gradient(180deg,#f0f9f4,#fff)}
-        .cf-auto-rec-badge{display:none;position:absolute;top:10px;left:14px;background:#33a065;color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;z-index:1}
+        .cf-auto-rec-badge{display:none;position:absolute;top:10px;left:14px;background:#f97316;color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;z-index:1}
         .cf-plan-card.auto-rec .cf-auto-rec-badge{display:block}
         .cf-plan-badge{position:absolute;top:-1px;right:18px;font-size:11px;font-weight:700;padding:5px 14px;border-radius:0 0 8px 8px}
         .cf-plan-badge.popular{background:#b8a472;color:#fff}
-        .cf-plan-badge.recommended{background:#55b87f;color:#fff}
+        .cf-plan-badge.recommended{background:#fb923c;color:#fff}
         .cf-plan-header{padding:24px 20px 14px;text-align:center;border-bottom:1px solid rgba(0,0,0,.05);transition:background .3s}
         .cf-plan-name{font-size:18px;font-weight:700;margin-bottom:3px}
         .cf-plan-base-price{font-size:12px;color:#6b6b6b;margin-bottom:6px}
-        .cf-plan-types{font-size:11px;color:#238050;background:#f0f9f4;padding:5px 12px;border-radius:6px;display:inline-block}
+        .cf-plan-types{font-size:11px;color:#ea580c;background:#f0f9f4;padding:5px 12px;border-radius:6px;display:inline-block}
         .cf-plan-pricing{padding:16px 20px 22px}
         .cf-price-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px dashed rgba(0,0,0,.06);transition:background .3s,padding .3s}
         .cf-price-row:last-child{border-bottom:none}
         .cf-price-row.highlight-freq{background:#f0f9f4;border-radius:8px;margin:0 -8px;padding:12px 8px}
-        .cf-freq-badge{font-size:13px;font-weight:700;color:#1d6641;background:#dbf2e3;padding:4px 12px;border-radius:8px}
+        .cf-freq-badge{font-size:13px;font-weight:700;color:#c2410c;background:#ffedd5;padding:4px 12px;border-radius:8px}
         .cf-price-calc{display:flex;align-items:center;gap:8px}
         .cf-price-original{font-size:13px;color:#aaa;text-decoration:line-through}
         .cf-price-arrow{color:#b8a472;font-size:14px}
@@ -984,11 +984,11 @@
         .cf-benefit-item{background:#fff;border-radius:16px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid rgba(42,157,94,.08);display:flex;gap:16px;align-items:flex-start;transition:transform .3s}
         .cf-benefit-item:hover{transform:translateY(-2px)}
         .cf-benefit-num{flex-shrink:0;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff}
-        .cf-benefit-num.bn-1{background:linear-gradient(135deg,#55b87f,#238050)}
+        .cf-benefit-num.bn-1{background:linear-gradient(135deg,#fb923c,#ea580c)}
         .cf-benefit-num.bn-2{background:linear-gradient(135deg,#2a8fa0,#1a7a8a)}
         .cf-benefit-num.bn-3{background:linear-gradient(135deg,#b8a472,#8a7540)}
         .cf-benefit-content h4{font-size:15px;font-weight:700;margin-bottom:4px}
-        .cf-benefit-content h4 .highlight{color:#238050}
+        .cf-benefit-content h4 .highlight{color:#ea580c}
         .cf-benefit-content p{font-size:12px;color:#6b6b6b;line-height:1.8}
         .cf-offer-grid{display:grid;grid-template-columns:1fr;gap:16px}
         .cf-offer-item{background:linear-gradient(135deg,#fffcf5,#fff8eb);border-radius:16px;padding:22px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1.5px solid rgba(184,164,114,.2);display:flex;gap:16px;align-items:flex-start;transition:transform .3s}
@@ -1003,10 +1003,10 @@
         .cf-concept-block-label{display:flex;align-items:center;gap:8px;margin-bottom:10px}
         .cf-concept-block-title{font-size:15px;font-weight:900;line-height:1}
         .cf-concept-block.problem .cf-concept-block-title{color:#b8303e}
-        .cf-concept-block.solution .cf-concept-block-title{color:#1d6641}
+        .cf-concept-block.solution .cf-concept-block-title{color:#c2410c}
         .cf-concept-block-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px;white-space:nowrap}
         .cf-concept-block.problem .cf-concept-block-badge{background:#fdf0f1;color:#d94050}
-        .cf-concept-block.solution .cf-concept-block-badge{background:#dbf2e3;color:#1d6641}
+        .cf-concept-block.solution .cf-concept-block-badge{background:#ffedd5;color:#c2410c}
         .cf-cascade{display:flex;flex-direction:column;gap:0}
         .cf-stage-row{display:flex;align-items:center;gap:8px}
         .cf-stage{flex:1;text-align:center}
@@ -1026,24 +1026,24 @@
         .cf-loop-icon{font-size:14px}
         .cf-loop-text{font-size:11px;font-weight:700;color:#b8303e}
         .cf-loop-text em{font-style:normal;font-weight:900;border-bottom:2px solid #d94050}
-        .cf-sol-wrap{background:linear-gradient(170deg,#f0f9f4,#e4f3ea);border:2px solid #88d1a8;border-radius:16px;padding:14px}
+        .cf-sol-wrap{background:linear-gradient(170deg,#f0f9f4,#e4f3ea);border:2px solid #fdba74;border-radius:16px;padding:14px}
         .cf-sol-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .cf-sol-card{background:rgba(255,255,255,.85);border:1.5px solid #b9e5ca;border-radius:12px;padding:12px 10px;text-align:center;transition:transform .2s}
+        .cf-sol-card{background:rgba(255,255,255,.85);border:1.5px solid #fed7aa;border-radius:12px;padding:12px 10px;text-align:center;transition:transform .2s}
         .cf-sol-card:hover{transform:translateY(-2px)}
-        .cf-sol-card-num{width:24px;height:24px;border-radius:6px;background:#33a065;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin:0 auto 6px}
-        .cf-sol-card-text{font-size:12px;font-weight:600;color:#1d6641;line-height:1.5}
-        .cf-sol-card-text strong{font-weight:800;color:#238050}
-        .cf-sol-card.sol-root{background:linear-gradient(160deg,#dbf2e3,#c8e8d4);border:2px solid #55b87f}
-        .cf-sol-card.sol-root .cf-sol-card-num{width:28px;height:28px;font-size:14px;border-radius:50%;background:#238050}
-        .cf-conclusion-card{text-align:center;padding:14px 20px;border-radius:14px;background:linear-gradient(135deg,#238050,#1a7044);color:white;margin-top:12px}
+        .cf-sol-card-num{width:24px;height:24px;border-radius:6px;background:#f97316;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin:0 auto 6px}
+        .cf-sol-card-text{font-size:12px;font-weight:600;color:#c2410c;line-height:1.5}
+        .cf-sol-card-text strong{font-weight:800;color:#ea580c}
+        .cf-sol-card.sol-root{background:linear-gradient(160deg,#ffedd5,#c8e8d4);border:2px solid #fb923c}
+        .cf-sol-card.sol-root .cf-sol-card-num{width:28px;height:28px;font-size:14px;border-radius:50%;background:#ea580c}
+        .cf-conclusion-card{text-align:center;padding:14px 20px;border-radius:14px;background:linear-gradient(135deg,#ea580c,#1a7044);color:white;margin-top:12px}
         .cf-conclusion-title{font-size:15px;font-weight:900;line-height:1.5}
         .cf-conclusion-sub{font-size:11px;opacity:.85;line-height:1.8;margin-top:2px}
-        .cf-emphasis-box{margin:20px 0 0;background:linear-gradient(135deg,#f0f9f4,#f5faf7);border:1.5px solid #b9e5ca;border-radius:14px;padding:18px 22px;display:flex;gap:14px;align-items:flex-start}
-        .cf-emphasis-icon{flex-shrink:0;width:40px;height:40px;background:#33a065;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700}
+        .cf-emphasis-box{margin:20px 0 0;background:linear-gradient(135deg,#f0f9f4,#f5faf7);border:1.5px solid #fed7aa;border-radius:14px;padding:18px 22px;display:flex;gap:14px;align-items:flex-start}
+        .cf-emphasis-icon{flex-shrink:0;width:40px;height:40px;background:#f97316;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700}
         .cf-emphasis-text{font-size:13px;line-height:1.9}
-        .cf-emphasis-text strong{color:#1d6641}
-        .cf-note-box{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid #55b87f}
-        .cf-note-box h4{font-size:14px;font-weight:700;margin-bottom:8px;color:#1d6641;display:flex;align-items:center;gap:6px}
+        .cf-emphasis-text strong{color:#c2410c}
+        .cf-note-box{background:#fff;border-radius:14px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid #fb923c}
+        .cf-note-box h4{font-size:14px;font-weight:700;margin-bottom:8px;color:#c2410c;display:flex;align-items:center;gap:6px}
         .cf-note-box p{font-size:12px;color:#6b6b6b;line-height:2}
         @media(max-width:768px){.cf-check-grid,.cf-concept-panels,.cf-plans-grid,.cf-plans-bottom{grid-template-columns:1fr}.cf-rec-grid{grid-template-columns:1fr}.cf-control-row{flex-direction:column}.cf-ci{width:100%}.cf-emphasis-box,.cf-benefit-item,.cf-offer-item{flex-direction:column;gap:10px}.cf-sol-grid{grid-template-columns:1fr}}
 
@@ -1053,8 +1053,8 @@
         .cf-customer-info{padding:18px 22px;gap:14px}
         .cf-info-chip{font-size:16px;padding:8px 16px;border-radius:10px}
         .cf-info-chip strong{font-size:17px}
-        .cf-info-chip.cf-info-name{font-size:20px;padding:10px 20px;background:linear-gradient(135deg,#e8f7ee,#d0f0db);color:#1d6641;border:1.5px solid #88d1a8}
-        .cf-info-chip.cf-info-name strong{font-size:22px;color:#1a5136}
+        .cf-info-chip.cf-info-name{font-size:20px;padding:10px 20px;background:linear-gradient(135deg,#e8f7ee,#d0f0db);color:#c2410c;border:1.5px solid #fdba74}
+        .cf-info-chip.cf-info-name strong{font-size:22px;color:#9a3412}
         .cf-info-chip.cf-info-wide{width:100%;flex-basis:100%}
         .cf-section-header h3{font-size:22px}
         .cf-section-body{padding:24px 28px}
@@ -1108,7 +1108,7 @@
         .cf-flow-chip{font-size:14px;padding:5px 14px}
 
         /* =============================================
-           si'se解決カード 動的強調アニメーション
+           くまのみ整体院解決カード 動的強調アニメーション
            ============================================= */
         @keyframes cfSolBounceIn{
             0%{opacity:0;transform:translateY(20px) scale(0.92)}
@@ -1116,8 +1116,8 @@
             100%{opacity:1;transform:translateY(0) scale(1)}
         }
         @keyframes cfSolGlow{
-            0%,100%{box-shadow:0 0 0 0 rgba(51,160,101,0)}
-            50%{box-shadow:0 0 16px 4px rgba(51,160,101,.25)}
+            0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}
+            50%{box-shadow:0 0 16px 4px rgba(249,115,22,.25)}
         }
         .cf-sol-animate{animation:cfSolBounceIn .6s ease-out both}
         .cf-sol-num-glow{animation:cfSolGlow 2.5s ease infinite 1s}
@@ -1548,7 +1548,7 @@
         };
 
         // ミニスパークライン（SVG）
-        const MiniSparkline = ({ data = [], color = "#33a065", height = 32, width = 80 }) => {
+        const MiniSparkline = ({ data = [], color = "#f97316", height = 32, width = 80 }) => {
             if (!data || data.length < 2) return null;
             const max = Math.max(...data);
             const min = Math.min(...data);
@@ -1591,14 +1591,14 @@
                 );
             }
             return (
-            <Card hover className="group kpi-card relative overflow-hidden" style={{'--kpi-color': accentColor || 'rgba(51,160,101,0.04)'}}>
+            <Card hover className="group kpi-card relative overflow-hidden" style={{'--kpi-color': accentColor || 'rgba(249,115,22,0.04)'}}>
                 <div className="flex justify-between items-start mb-2">
                     <div className={`rounded-xl bg-gradient-to-br ${gradientFrom} ${gradientTo} text-white shadow-lg p-2.5 md:p-3 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
                         <Icon name={icon} size={18} />
                     </div>
                     <div className="flex items-center gap-2">
                         {sparkData && sparkData.length > 1 && (
-                            <MiniSparkline data={sparkData} color={accentColor || '#33a065'} height={28} width={60} />
+                            <MiniSparkline data={sparkData} color={accentColor || '#f97316'} height={28} width={60} />
                         )}
                         {trend !== null && trend !== undefined && (
                             <span className={`font-semibold ${trend >= 0 ? 'text-emerald-600 bg-emerald-50/80' : 'text-red-500 bg-red-50/80'} flex items-center px-2 py-0.5 rounded-full text-[11px] backdrop-blur-sm`}>
@@ -3227,7 +3227,7 @@
         // ========================================
 
         // 目標プログレスリング
-        const GoalRing = ({ value, max, size = 80, strokeWidth = 6, color = "#33a065", label, sublabel }) => {
+        const GoalRing = ({ value, max, size = 80, strokeWidth = 6, color = "#f97316", label, sublabel }) => {
             const radius = (size - strokeWidth) / 2;
             const circumference = 2 * Math.PI * radius;
             const progress = Math.min(value / (max || 1), 1);
@@ -3235,7 +3235,7 @@
             return (
                 <div className="flex flex-col items-center">
                     <svg width={size} height={size} className="transform -rotate-90">
-                        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="rgba(51,160,101,0.08)" strokeWidth={strokeWidth} />
+                        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="rgba(249,115,22,0.08)" strokeWidth={strokeWidth} />
                         <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
                             strokeDasharray={circumference} strokeDashoffset={offset}
                             className="usage-ring" style={{transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1)'}} />
@@ -3353,7 +3353,7 @@
                 };
             }, [reportData.reports, selectedStore, dateRange, allowedStoreNames]);
 
-            const storeColors = ['#33a065', '#3b82f6', '#f97316', '#a855f7', '#ec4899'];
+            const storeColors = ['#f97316', '#3b82f6', '#f97316', '#a855f7', '#ec4899'];
             const tooltipStyle = { backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', borderRadius: '16px', boxShadow: '0 12px 40px -8px rgba(0,0,0,0.1)', padding: '12px 16px' };
             const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
             const chartHeight = isMobile ? 200 : 260;
@@ -3428,7 +3428,7 @@
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4">
                         <KpiCard title="アクティブ会員" value={formatNumber(memberData.activeMembers)}
                             subValue={`総会員: ${formatNumber(memberData.totalMembers)}人`} trend={null} icon="users"
-                            gradientFrom="from-sise-400" gradientTo="to-sise-600" accentColor="#33a065" loading={memberData.loading} />
+                            gradientFrom="from-sise-400" gradientTo="to-sise-600" accentColor="#f97316" loading={memberData.loading} />
                         <KpiCard title="想定月間売上" value={formatCurrency(memberData.expectedRevenue)}
                             subValue="サブスク収益" trend={null} icon="wallet"
                             gradientFrom="from-emerald-400" gradientTo="to-emerald-600" accentColor="#059669" loading={memberData.loading} />
@@ -4625,7 +4625,7 @@
                         const qrUrl = await window.QRCode.toDataURL(link.url, {
                             width: 280,
                             margin: 2,
-                            color: { dark: '#1a5136', light: '#ffffff' },
+                            color: { dark: '#9a3412', light: '#ffffff' },
                             errorCorrectionLevel: 'M',
                         });
                         setQrDataUrl(qrUrl);
@@ -5837,7 +5837,7 @@
                                                 <div className="w-full bg-slate-200 rounded-full h-2">
                                                     <div
                                                         className="h-2 rounded-full transition-all duration-500"
-                                                        style={{ width: `${pct}%`, background: pct >= 100 ? '#94a3b8' : pct >= 70 ? '#f59e0b' : '#33a065' }}
+                                                        style={{ width: `${pct}%`, background: pct >= 100 ? '#94a3b8' : pct >= 70 ? '#f59e0b' : '#f97316' }}
                                                     ></div>
                                                 </div>
                                             </div>
@@ -6300,7 +6300,7 @@
                                                         width: `${billing.progressPct}%`,
                                                         background: billing.daysUntilRenewal <= 3 ? '#ef4444'
                                                             : billing.daysUntilRenewal <= 7 ? '#3b82f6'
-                                                            : '#33a065'
+                                                            : '#f97316'
                                                     }}
                                                 ></div>
                                             </div>
@@ -8955,7 +8955,7 @@
                     if (window.QRCode) {
                         const qrUrl = await window.QRCode.toDataURL(link.url, {
                             width: 280, margin: 2,
-                            color: { dark: '#1a5136', light: '#ffffff' },
+                            color: { dark: '#9a3412', light: '#ffffff' },
                             errorCorrectionLevel: 'M',
                         });
                         setQrDataUrl(qrUrl);
@@ -9217,8 +9217,8 @@
                 <div className="cf-section-card" style={{marginBottom:20}}>
                     <div className="cf-section-body">
                         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
-                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:'#238050',letterSpacing:2}}>si<span style={{color:'#b8a472'}}>'</span>se</div>
-                            <div style={{flex:1,height:1,background:'linear-gradient(90deg,#b9e5ca,transparent)'}}></div>
+                            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:'#ea580c',letterSpacing:2}}>si<span style={{color:'#b8a472'}}>'</span>se</div>
+                            <div style={{flex:1,height:1,background:'linear-gradient(90deg,#fed7aa,transparent)'}}></div>
                         </div>
                         <div className="cf-concept-panels">
                             <div className="cf-concept-block problem">
@@ -9250,7 +9250,7 @@
                             </div>
                             <div className="cf-concept-block solution">
                                 <div className="cf-concept-block-label">
-                                    <div className="cf-concept-block-title">si'se なら、すべて解決</div>
+                                    <div className="cf-concept-block-title">くまのみ整体院 なら、すべて解決</div>
                                     <div className="cf-concept-block-badge">ワンストップで対応</div>
                                 </div>
                                 <div className="cf-sol-wrap">
@@ -9265,7 +9265,7 @@
                         </div>
                         <div className="cf-conclusion-card">
                             <div className="cf-conclusion-title">どの段階のお悩みでも、根本から改善し維持できる</div>
-                            <div className="cf-conclusion-sub">一般的なサロンは各段階の「対処」だけ。si'seは全段階＋根本原因をまとめてケアします。</div>
+                            <div className="cf-conclusion-sub">一般的なサロンは各段階の「対処」だけ。くまのみ整体院は全段階＋根本原因をまとめてケアします。</div>
                         </div>
                     </div>
                 </div>
@@ -9283,7 +9283,7 @@
                         onClick={() => onSelect && onSelect(plan)}
                         style={{cursor: onSelect ? 'pointer' : 'default', position:'relative'}}
                     >
-                        {isSelected && <div style={{position:'absolute',top:8,right:8,width:22,height:22,background:'#33a065',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700,boxShadow:'0 2px 6px rgba(51,160,101,.4)'}}>✓</div>}
+                        {isSelected && <div style={{position:'absolute',top:8,right:8,width:22,height:22,background:'#f97316',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:12,fontWeight:700,boxShadow:'0 2px 6px rgba(249,115,22,.4)'}}>✓</div>}
                         <div className="cf-rec-rank"><span>{icon}</span>{label}</div>
                         <div className="cf-rec-body">
                             <div className="cf-rec-plan-name">{plan.name}</div>
@@ -9347,7 +9347,7 @@
                                     value={counselingStore}
                                     onChange={e => setCounselingStore(e.target.value)}
                                     className="cf-customer-bar select"
-                                    style={{maxWidth:140,fontWeight:600,color:'#238050'}}
+                                    style={{maxWidth:140,fontWeight:600,color:'#ea580c'}}
                                     disabled={isRestricted && allowedStores.length <= 1}
                                 >
                                     {allowedStores.map(s => (
@@ -9459,7 +9459,7 @@
                                     <>
                                         <div style={{marginBottom:16}}>
                                             <div style={{fontSize:16,fontWeight:700,display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                                                <div style={{width:28,height:28,background:'#33a065',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:14,flexShrink:0}}>✓</div>
+                                                <div style={{width:28,height:28,background:'#f97316',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:14,flexShrink:0}}>✓</div>
                                                 おすすめプラン
                                             </div>
                                             <div style={{fontSize:13,color:'#6b6b6b',lineHeight:1.8}}>{recPlan.reasons.join('・')}、<strong>3つのプラン</strong>をご提案します。カードをタップで変更できます。</div>
@@ -9645,7 +9645,7 @@
                         </div>
                         <div className="cf-section-body">
                             <p style={{fontSize:13,color:'#6b6b6b',marginBottom:20}}>ヒアリング結果に基づいたおすすめプランがハイライトされています。</p>
-                            <div style={{textAlign:'center',marginBottom:24}}><span style={{display:'inline-block',background:'#dbf2e3',color:'#1d6641',fontSize:14,fontWeight:600,padding:'8px 24px',borderRadius:24}}>初回入会費一律：¥5,000</span></div>
+                            <div style={{textAlign:'center',marginBottom:24}}><span style={{display:'inline-block',background:'#ffedd5',color:'#c2410c',fontSize:14,fontWeight:600,padding:'8px 24px',borderRadius:24}}>初回入会費一律：¥5,000</span></div>
                             <div className="cf-plans-grid">
                                 <div className={'cf-plan-card popular ' + (isPlanRec('Standard') ? 'auto-rec' : '')}>
                                     <div className="cf-auto-rec-badge">← 診断おすすめ</div>
@@ -9709,7 +9709,7 @@
                                 <div className="cf-qr-panel animate-fade-in" style={{marginTop:20}}>
                                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
                                         <div style={{display:'flex',alignItems:'center',gap:10}}>
-                                            <div style={{width:36,height:36,background:'linear-gradient(135deg,#2d7a4f,#1a5136)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                            <div style={{width:36,height:36,background:'linear-gradient(135deg,#2d7a4f,#9a3412)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center'}}>
                                                 <Icon name="link" size={18} className="text-white" />
                                             </div>
                                             <div>
@@ -9756,7 +9756,7 @@
                                             )}
 
                                             {!qrLink && (
-                                                <button onClick={generateQrLink} disabled={qrLoading || !qrSelectedPlanId} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'12px 16px',background: qrLoading || !qrSelectedPlanId ? '#ccc' : 'linear-gradient(135deg,#2d7a4f,#1a5136)',color:'#fff',border:'none',borderRadius:12,fontSize:14,fontWeight:600,cursor: qrLoading || !qrSelectedPlanId ? 'not-allowed' : 'pointer',transition:'all .2s'}}>
+                                                <button onClick={generateQrLink} disabled={qrLoading || !qrSelectedPlanId} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'12px 16px',background: qrLoading || !qrSelectedPlanId ? '#ccc' : 'linear-gradient(135deg,#2d7a4f,#9a3412)',color:'#fff',border:'none',borderRadius:12,fontSize:14,fontWeight:600,cursor: qrLoading || !qrSelectedPlanId ? 'not-allowed' : 'pointer',transition:'all .2s'}}>
                                                     {qrLoading ? (<><Icon name="loader" size={16} className="animate-spin" /> 生成中...</>) : (<><Icon name="sparkles" size={16} /> 契約リンクを生成</>)}
                                                 </button>
                                             )}
@@ -10295,7 +10295,7 @@
                                 <div className="relative pl-8 border-l-2 border-sise-200 pb-5">
                                     <div className="absolute left-0 -translate-x-1/2 w-7 h-7 rounded-full bg-gradient-to-br from-sise-500 to-sise-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">1</div>
                                     <h4 className="font-bold text-slate-800 mb-2">スプレッドシートを作成</h4>
-                                    <p className="text-sm text-slate-600 mb-3">Google ドライブで新しいスプレッドシートを作成します。名前は「si'se 統合管理」などわかりやすいものにしてください。</p>
+                                    <p className="text-sm text-slate-600 mb-3">Google ドライブで新しいスプレッドシートを作成します。名前は「くまのみ整体院 統合管理」などわかりやすいものにしてください。</p>
                                 </div>
 
                                 {/* Step 2 */}
@@ -10407,7 +10407,7 @@
             return (
                 <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(135deg,#f0f7f3 0%,#e8f5ec 50%,#f5f0e8 100%)',padding:20}}>
                     <div style={{width:'100%',maxWidth:380,background:'white',borderRadius:24,boxShadow:'0 20px 60px rgba(0,0,0,.08)',padding:40,textAlign:'center'}}>
-                        <div style={{width:64,height:64,background:'linear-gradient(135deg,#2d7a4f,#1a5136)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
+                        <div style={{width:64,height:64,background:'linear-gradient(135deg,#2d7a4f,#9a3412)',borderRadius:20,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
                             <Icon name="lock" size={28} className="text-white" />
                         </div>
                         <h2 style={{fontSize:20,fontWeight:700,color:'#1a1a1a',marginBottom:4}}>パスワード入力</h2>
@@ -10422,7 +10422,7 @@
                                 placeholder="パスワードを入力"
                                 autoFocus
                                 style={{width:'100%',padding:'12px 16px',border:'2px solid #e2e8f0',borderRadius:14,fontSize:15,outline:'none',transition:'border-color .2s',boxSizing:'border-box'}}
-                                onFocus={e => e.target.style.borderColor = '#33a065'}
+                                onFocus={e => e.target.style.borderColor = '#f97316'}
                                 onBlur={e => e.target.style.borderColor = '#e2e8f0'}
                             />
                             {error && (
@@ -10433,7 +10433,7 @@
                             <button
                                 type="submit"
                                 disabled={checking || !password.trim()}
-                                style={{width:'100%',marginTop:16,padding:'12px',background:checking ? '#94a3b8' : 'linear-gradient(135deg,#2d7a4f,#1a5136)',color:'white',border:'none',borderRadius:14,fontSize:15,fontWeight:600,cursor:checking ? 'wait' : 'pointer',transition:'opacity .2s'}}
+                                style={{width:'100%',marginTop:16,padding:'12px',background:checking ? '#94a3b8' : 'linear-gradient(135deg,#2d7a4f,#9a3412)',color:'white',border:'none',borderRadius:14,fontSize:15,fontWeight:600,cursor:checking ? 'wait' : 'pointer',transition:'opacity .2s'}}
                             >
                                 {checking ? '確認中...' : 'ログイン'}
                             </button>
@@ -10644,17 +10644,17 @@
                                     <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl overflow-hidden shadow-lg shadow-sise-500/30 animate-glow-pulse flex-shrink-0">
                                         <img
                                             src="./images/logo.png"
-                                            alt="si'se"
+                                            alt="くまのみ整体院"
                                             className="w-full h-full object-contain"
                                             onError={(e) => {
                                                 e.target.style.display = 'none';
                                                 e.target.parentElement.classList.add('bg-gradient-to-br', 'from-sise-400', 'to-sise-600', 'flex', 'items-center', 'justify-center');
-                                                e.target.parentElement.innerHTML = '<span class="text-white font-extrabold text-sm">S</span>';
+                                                e.target.parentElement.innerHTML = '<span class="text-white font-extrabold text-sm">🐠</span>';
                                             }}
                                         />
                                     </div>
                                     <div className="ml-2.5">
-                                        <h1 className="text-sm md:text-base font-extrabold tracking-wide gradient-text">si'se</h1>
+                                        <h1 className="text-sm md:text-base font-extrabold tracking-wide gradient-text">くまのみ整体院</h1>
                                         <p className="text-[9px] text-sise-400 -mt-0.5 font-semibold tracking-[0.2em]">DASHBOARD</p>
                                     </div>
                                 </div>
