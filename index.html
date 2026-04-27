@@ -737,6 +737,166 @@
             .top-tab-item svg { width: 15px; height: 15px; }
         }
 
+        /* =========================================================
+           Button ripple effect — material-style click ripple emitted
+           from the click position. Used by the <Button/> component.
+           A single absolutely-positioned span is appended on click
+           and removed after ~650ms.
+           ========================================================= */
+        .btn-ripple {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        .btn-ripple > .ripple-wave {
+            position: absolute;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.25;
+            pointer-events: none;
+            transform: scale(0);
+            animation: ripple 0.6s cubic-bezier(0.16,1,0.3,1);
+            z-index: 0;
+        }
+        .btn-ripple > .btn-ripple-inner {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* =========================================================
+           Floating-label text input — replaces label+input pairs.
+           The label sits inside the input when blurred & empty,
+           and floats up to the border when focused or filled.
+           Errors get a red ring + danger border.
+           ========================================================= */
+        .fi-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .fi-field {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        .dark .fi-field { background: #1f1208; border-color: #2d1a08; }
+        .fi-field:hover:not(.fi-disabled) { border-color: #cbd5e1; }
+        .dark .fi-field:hover:not(.fi-disabled) { border-color: #4a2c14; }
+        .fi-field:focus-within {
+            border-color: #f97316;
+            box-shadow: 0 0 0 3px rgba(249,115,22,0.15);
+        }
+        .fi-field.fi-disabled { opacity: 0.55; background: #f8fafc; }
+        .dark .fi-field.fi-disabled { background: #170d03; }
+        .fi-field > input,
+        .fi-field > textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 18px 14px 6px;
+            font-size: 14px;
+            color: #0f172a;
+            min-width: 0;
+            width: 100%;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .dark .fi-field > input,
+        .dark .fi-field > textarea { color: #e2e8f0; }
+        .fi-label {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: #94a3b8;
+            pointer-events: none;
+            transition: transform 0.18s cubic-bezier(0.16,1,0.3,1),
+                        font-size 0.18s ease,
+                        color 0.15s ease;
+            background: transparent;
+            padding: 0 4px;
+        }
+        .fi-field.fi-filled .fi-label,
+        .fi-field:focus-within .fi-label {
+            transform: translateY(-22px) scale(0.85);
+            color: #f97316;
+            font-weight: 600;
+            background: linear-gradient(to bottom, transparent 50%, #fff 50%);
+        }
+        .dark .fi-field.fi-filled .fi-label,
+        .dark .fi-field:focus-within .fi-label {
+            background: linear-gradient(to bottom, transparent 50%, #1f1208 50%);
+        }
+        .fi-left, .fi-right {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 10px;
+            color: #94a3b8;
+            flex-shrink: 0;
+        }
+        .fi-left + input,
+        .fi-left + textarea { padding-left: 0; }
+        .fi-left ~ .fi-label { left: 38px; }
+        .fi-wrap.fi-error .fi-field {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
+        }
+        .fi-wrap.fi-error .fi-field:focus-within {
+            box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
+        }
+        .fi-wrap.fi-error .fi-field.fi-filled .fi-label,
+        .fi-wrap.fi-error .fi-field:focus-within .fi-label {
+            color: #ef4444;
+        }
+        .fi-help {
+            font-size: 11px;
+            color: #64748b;
+            margin-left: 12px;
+            margin-top: 2px;
+        }
+        .fi-help-error { color: #ef4444; }
+
+        /* =========================================================
+           Modal backdrop — used by ConfirmDialog and any future
+           modal. Centered flex layout, blurred background, soft
+           spring entrance animation.
+           ========================================================= */
+        .modal-backdrop {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px) saturate(1.2);
+            -webkit-backdrop-filter: blur(12px) saturate(1.2);
+            display: flex; align-items: center; justify-content: center; padding: 16px;
+            animation: modalBackdropIn 0.28s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .dark .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
+        .modal-panel {
+            animation: modalSpringIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            transform-origin: center;
+        }
+        @keyframes modalBackdropIn {
+            from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+            to   { opacity: 1; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        }
+        @keyframes modalSpringIn {
+            0%   { opacity: 0; transform: scale(0.88) translateY(12px); }
+            55%  { opacity: 1; transform: scale(1.02) translateY(-2px); }
+            78%  { transform: scale(0.995) translateY(0.5px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .modal-backdrop, .modal-panel { animation-duration: 150ms !important; }
+        }
+
         /* Gradient button */
         .btn-gradient {
             background: linear-gradient(135deg, #f97316, #ea580c);
@@ -3652,6 +3812,421 @@
         // ========================================
 
         // 目標プログレスリング
+        // ============================================================
+        // 共通 UI コンポーネント群
+        // ============================================================
+        // すべて props のみで動作する純粋なプレゼンテーション部品。
+        // 後続の新ビュー（来店フロー / Customer 360 / LINE / 姿勢分析 / 施術
+        // レポート）が共通的に使うので、本コミットでまとめて整備する。
+        // ============================================================
+
+        // 名前/文字列の先頭1文字を取り出すユーティリティ。空・ホワイトスペース
+        // のみだったときは "?" を返してアバターのフォールバックに使う。
+        const getInitial = (name) => {
+            if (!name || typeof name !== 'string') return '?';
+            const trimmed = name.trim();
+            return trimmed ? trimmed[0] : '?';
+        };
+
+        // 画像 URL の読み込みに失敗したらイニシャル（または fallbackText）の
+        // ブロックにフォールバックする <img> ラッパー。
+        const ImageWithFallback = ({ src, alt = '', fallbackText, className, style, ...rest }) => {
+            const [failed, setFailed] = useState(false);
+            if (!src || failed) {
+                return (
+                    <div className={className} style={{ ...style, display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#fed7aa,#fdba74)', color:'#9a3412', fontSize:'60%', fontWeight:700 }}>
+                        {fallbackText || getInitial(alt) || '?'}
+                    </div>
+                );
+            }
+            return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={className} style={style} {...rest} />;
+        };
+
+        // 単純な回転スピナー。Button の loading 状態などで使う。
+        const Spinner = ({ size = 14 }) => (
+            <span
+                aria-hidden="true"
+                className="inline-block animate-spin rounded-full border-2 border-current border-t-transparent"
+                style={{ width: size, height: size }}
+            />
+        );
+
+        // 空状態プレースホルダ。一覧系の「データなし」表示を統一する。
+        // compact=true でモバイル向け縮小レイアウト、actionLabel/onAction で
+        // 「リトライ」「追加」など主要動線を 1 つだけ提示できる。
+        const EmptyState = ({ icon = 'inbox', title, message, actionLabel, onAction, compact = false }) => (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding: compact ? '24px 16px' : '48px 20px', textAlign:'center', color:'#94a3b8' }}>
+                <div style={{ width: compact ? 52 : 72, height: compact ? 52 : 72, borderRadius: compact ? 16 : 22, background:'linear-gradient(135deg,#fff7ed,#ffedd5)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
+                    <Icon name={icon} size={compact ? 24 : 32} className="text-sise-400" />
+                </div>
+                <div style={{ fontSize: compact ? 14 : 15, fontWeight:700, color:'#475569', marginBottom:6 }}>{title}</div>
+                {message && <div style={{ fontSize:12, color:'#94a3b8', maxWidth:320, lineHeight:1.6 }}>{message}</div>}
+                {actionLabel && onAction && (
+                    <button onClick={onAction} style={{ marginTop:16, padding:'10px 20px', borderRadius:12, fontSize:13, fontWeight:700, background:'linear-gradient(135deg,#f97316,#ea580c)', color:'#fff', border:'none', cursor:'pointer', boxShadow:'0 4px 12px rgba(249,115,22,.25)' }}>
+                        {actionLabel}
+                    </button>
+                )}
+            </div>
+        );
+
+        // ロード中スケルトン。variant で形を切り替える:
+        //   list  (default) — avatar + 2 行の行を count 件
+        //   card            — 96px 角の正方形をグリッド配置
+        //   kpi             — KPI カード形（アイコン + 数値 + 補助文）
+        //   chart           — チャート風（バー軸 + 棒グラフ）
+        //   table           — 表形式の行
+        const SkeletonRow = ({ count = 3, variant = 'list' }) => {
+            const rows = Array.from({ length: count }, (_, i) => i);
+            if (variant === 'card') return (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:12 }}>
+                    {rows.map(i => <div key={i} className="skeleton" style={{ height:96, borderRadius:14 }} />)}
+                </div>
+            );
+            if (variant === 'kpi') return (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:12 }}>
+                    {rows.map(i => (
+                        <div key={i} className="glass-card" style={{ padding:20, display:'flex', flexDirection:'column', gap:10, minHeight:120 }}>
+                            <div className="skeleton" style={{ width:44, height:44, borderRadius:14 }} />
+                            <div className="skeleton" style={{ height:10, width:'60%', borderRadius:4 }} />
+                            <div className="skeleton" style={{ height:22, width:'80%', borderRadius:6 }} />
+                            <div className="skeleton" style={{ height:9, width:'45%', borderRadius:4 }} />
+                        </div>
+                    ))}
+                </div>
+            );
+            if (variant === 'chart') {
+                const height = 220;
+                const bars = Math.max(6, count);
+                return (
+                    <div className="glass-card" style={{ padding:20 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+                            <div className="skeleton" style={{ height:14, width:120, borderRadius:6 }} />
+                            <div className="skeleton" style={{ height:12, width:80, borderRadius:6 }} />
+                        </div>
+                        <div style={{ display:'flex', alignItems:'flex-end', gap:8, height, paddingBottom:16, borderBottom:'1px dashed rgba(148,163,184,0.25)' }}>
+                            {Array.from({ length: bars }, (_, i) => {
+                                const h = 30 + ((Math.sin(i * 1.3) + 1) / 2) * (height - 50);
+                                return <div key={i} className="skeleton" style={{ flex:1, height: h + 'px', borderRadius:'6px 6px 0 0' }} />;
+                            })}
+                        </div>
+                    </div>
+                );
+            }
+            if (variant === 'table') return (
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    {rows.map(i => (
+                        <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 0.6fr', gap:12, padding:'10px 12px', borderRadius:10, background:'rgba(255,255,255,0.5)', border:'1px solid #f1f5f9' }}>
+                            <div className="skeleton" style={{ height:12, borderRadius:4 }} />
+                            <div className="skeleton" style={{ height:12, borderRadius:4, width:'85%' }} />
+                            <div className="skeleton" style={{ height:12, borderRadius:4, width:'60%' }} />
+                            <div className="skeleton" style={{ height:12, borderRadius:4, width:'40%', marginLeft:'auto' }} />
+                        </div>
+                    ))}
+                </div>
+            );
+            // default: list
+            return (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {rows.map(i => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:12, background:'#fff', border:'1px solid #f1f5f9' }}>
+                            <div className="skeleton" style={{ width:36, height:36, borderRadius:10, flexShrink:0 }} />
+                            <div style={{ flex:1, display:'flex', flexDirection:'column', gap:6 }}>
+                                <div className="skeleton" style={{ height:12, width:'50%', borderRadius:4 }} />
+                                <div className="skeleton" style={{ height:10, width:'70%', borderRadius:4 }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // 背景同期インジケータの UI コンポーネント。
+        // ヘッダ右側などに置いて、useBackgroundSync が true の間だけ点灯する。
+        const BackgroundSyncIndicator = () => {
+            const syncing = useBackgroundSync();
+            if (!syncing) return null;
+            return (
+                <div title="データを同期中" style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', borderRadius:999, background:'rgba(249,115,22,0.12)', border:'1px solid rgba(249,115,22,0.25)' }}>
+                    <div style={{ width:6, height:6, borderRadius:'50%', background:'#f97316', animation:'pulse 1.4s ease-in-out infinite' }} />
+                    <span style={{ fontSize:10, fontWeight:700, color:'#9a3412' }}>同期中</span>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // 確認ダイアログ (imperative API)
+        // ============================================================
+        // window.confirm() の置換。await confirmDialog({ title, message })
+        // が Promise<boolean> を返す。スタイルとアニメーションを統一する
+        // ためにモーダル化。Variant 'danger' で削除系ボタンは赤くする。
+        // ============================================================
+        const confirmState = { listeners: [], current: null };
+        const confirmDialog = (options) => {
+            return new Promise((resolve) => {
+                confirmState.current = { ...options, resolve };
+                confirmState.listeners.forEach(fn => fn(confirmState.current));
+            });
+        };
+
+        const ConfirmDialogContainer = () => {
+            const [opts, setOpts] = useState(null);
+            useEffect(() => {
+                const fn = (v) => setOpts(v);
+                confirmState.listeners.push(fn);
+                return () => { confirmState.listeners = confirmState.listeners.filter(l => l !== fn); };
+            }, []);
+            if (!opts) return null;
+            const close = (result) => {
+                const resolve = opts.resolve;
+                setOpts(null);
+                confirmState.current = null;
+                confirmState.listeners.forEach(fn => fn(null));
+                resolve(result);
+            };
+            const isDanger = opts.variant === 'danger';
+            return (
+                <div className="modal-backdrop"
+                     role="dialog" aria-modal="true"
+                     aria-labelledby="confirm-dialog-title"
+                     onClick={() => close(false)}>
+                    <div className="modal-panel" onClick={e => e.stopPropagation()}
+                         style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:380, padding:24, boxShadow:'0 20px 60px rgba(15,23,42,.25)' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:14 }}>
+                            <div style={{ width:44, height:44, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center', background: isDanger ? '#fef2f2' : '#fff7ed', color: isDanger ? '#dc2626' : '#ea580c', flexShrink:0 }}>
+                                <Icon name={isDanger ? 'alert-triangle' : 'help-circle'} size={22} />
+                            </div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                                <div id="confirm-dialog-title" style={{ fontSize:16, fontWeight:700, color:'#1e293b', marginBottom:2 }}>{opts.title || '確認'}</div>
+                                {opts.message && <div style={{ fontSize:13, color:'#64748b', lineHeight:1.5 }}>{opts.message}</div>}
+                            </div>
+                        </div>
+                        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:18 }}>
+                            <button onClick={() => close(false)} style={{ padding:'10px 18px', borderRadius:10, fontSize:14, fontWeight:600, color:'#64748b', background:'#f1f5f9', border:'none', cursor:'pointer' }}>
+                                {opts.cancelLabel || 'キャンセル'}
+                            </button>
+                            <button onClick={() => close(true)} style={{ padding:'10px 18px', borderRadius:10, fontSize:14, fontWeight:700, color:'#fff', background: isDanger ? '#ef4444' : 'linear-gradient(135deg,#f97316,#ea580c)', border:'none', cursor:'pointer' }}>
+                                {opts.confirmLabel || 'OK'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // Button (with ripple)
+        // ============================================================
+        // 使い方:  <Button variant="primary" size="md" loading={busy}
+        //              leftIcon={<Icon name="plus" size={14} />}>追加</Button>
+        // variant: primary | secondary | ghost | danger
+        // size:    sm | md | lg
+        // ripple は click 座標から円形を吹き出す。prefers-reduced-motion
+        // が有効なら省略する。
+        // ============================================================
+        const Button = ({
+            variant = 'primary',
+            size = 'md',
+            loading = false,
+            leftIcon = null,
+            rightIcon = null,
+            className = '',
+            children,
+            onClick,
+            type = 'button',
+            ...props
+        }) => {
+            const rm = useReducedMotion();
+            const base = 'btn-ripple inline-flex items-center justify-center gap-2 rounded-xl font-semibold select-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sise-500/40 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+            const active = rm ? '' : 'active:scale-[0.97]';
+            const sizes = {
+                sm: 'px-3 py-1.5 text-xs min-h-[32px]',
+                md: 'px-4 py-2.5 text-sm min-h-[40px]',
+                lg: 'px-5 py-3 text-base min-h-[48px]',
+            };
+            const variants = {
+                primary:   'btn-gradient text-white shadow-md hover:shadow-lg',
+                secondary: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700',
+                ghost:     'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                danger:    'bg-[#ef4444] text-white hover:bg-[#dc2626] shadow-md',
+            };
+
+            const handleClick = (e) => {
+                if (props.disabled || loading) return;
+                if (!rm && e.currentTarget) {
+                    const btn = e.currentTarget;
+                    const rect = btn.getBoundingClientRect();
+                    const diameter = Math.max(rect.width, rect.height);
+                    const wave = document.createElement('span');
+                    wave.className = 'ripple-wave';
+                    wave.style.width = diameter + 'px';
+                    wave.style.height = diameter + 'px';
+                    wave.style.left = (e.clientX - rect.left - diameter / 2) + 'px';
+                    wave.style.top = (e.clientY - rect.top - diameter / 2) + 'px';
+                    btn.appendChild(wave);
+                    setTimeout(() => { try { wave.remove(); } catch (_) {} }, 650);
+                }
+                if (onClick) onClick(e);
+            };
+
+            return (
+                <button
+                    type={type}
+                    onClick={handleClick}
+                    aria-busy={loading || undefined}
+                    className={`${base} ${active} ${sizes[size] || sizes.md} ${variants[variant] || variants.primary} ${className}`}
+                    {...props}
+                >
+                    <span className="btn-ripple-inner">
+                        {loading ? <Spinner size={size === 'lg' ? 16 : 14} /> : leftIcon}
+                        {children && <span>{children}</span>}
+                        {!loading && rightIcon}
+                    </span>
+                </button>
+            );
+        };
+
+        // ============================================================
+        // FloatingInput
+        // ============================================================
+        // 使い方:  <FloatingInput label="お名前" value={name} onChange={...}
+        //                       error={errors.name} helpText="必須" />
+        // <input> でも <textarea> でも内部で同じレイアウトを使う。type に
+        // "textarea" を渡すと textarea へ切り替わる。
+        // ============================================================
+        const FloatingInput = ({
+            id,
+            label,
+            value,
+            onChange,
+            type = 'text',
+            placeholder = ' ', // space で :placeholder-shown を確実に動作させる
+            error,
+            helpText,
+            leftIcon,
+            rightIcon,
+            className = '',
+            disabled,
+            required,
+            autoComplete,
+            inputMode,
+            rows,
+            ...props
+        }) => {
+            const autoId = useMemo(() => id || `fi-${Math.random().toString(36).slice(2, 9)}`, [id]);
+            const isFilled = value !== undefined && value !== null && String(value).length > 0;
+            const isTextarea = type === 'textarea';
+            const InputTag = isTextarea ? 'textarea' : 'input';
+            const inputProps = {
+                id: autoId,
+                value: value ?? '',
+                onChange,
+                placeholder,
+                disabled,
+                required,
+                autoComplete,
+                inputMode,
+                'aria-invalid': error ? 'true' : undefined,
+                'aria-describedby': (error || helpText) ? `${autoId}-desc` : undefined,
+                ...(isTextarea ? { rows: rows || 3 } : { type }),
+                ...props,
+            };
+            return (
+                <div className={`fi-wrap ${error ? 'fi-error' : ''} ${className}`}>
+                    <div className={`fi-field ${isFilled ? 'fi-filled' : ''} ${disabled ? 'fi-disabled' : ''}`}>
+                        {leftIcon && <span className="fi-left">{leftIcon}</span>}
+                        <InputTag {...inputProps} />
+                        <label htmlFor={autoId} className="fi-label">
+                            {label}{required && <span aria-hidden="true" style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
+                        </label>
+                        {rightIcon && <span className="fi-right">{rightIcon}</span>}
+                    </div>
+                    {(error || helpText) && (
+                        <p id={`${autoId}-desc`} className={`fi-help ${error ? 'fi-help-error' : ''}`}>
+                            {error || helpText}
+                        </p>
+                    )}
+                </div>
+            );
+        };
+
+        // ============================================================
+        // ChartTooltip / ToggleLegend
+        // ============================================================
+        // Recharts <Tooltip content={<ChartTooltip ... />} /> として使う。
+        // labelFormatter / valueFormatter / nameFormatter を任意で指定でき、
+        // hidden に Set を渡すと該当 dataKey を除外して表示する。
+        // ToggleLegend は items に [{key,label,color}] を渡し、hidden Set と
+        // onToggle(key) を控えると、押すたびにシリーズ表示が切り替わる凡例。
+        // ============================================================
+        const ChartTooltip = ({ active, payload, label, labelFormatter, valueFormatter, nameFormatter, hidden }) => {
+            if (!active || !payload || !payload.length) return null;
+            const shown = hidden && hidden.has
+                ? payload.filter(p => !hidden.has(p.dataKey))
+                : payload;
+            if (shown.length === 0) return null;
+            const displayLabel = labelFormatter ? labelFormatter(label) : label;
+            return (
+                <div className="glass-panel" style={{
+                    padding: '10px 14px',
+                    borderRadius: 14,
+                    minWidth: 140,
+                    fontSize: 12,
+                    border: '1px solid rgba(249,115,22,0.12)',
+                    boxShadow: '0 12px 32px -8px rgba(0,0,0,0.18)',
+                }}>
+                    {displayLabel !== undefined && displayLabel !== null && (
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6, letterSpacing: 0.3 }}>
+                            {displayLabel}
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {shown.map((entry, i) => {
+                            const v = valueFormatter ? valueFormatter(entry.value, entry) : entry.value;
+                            const n = nameFormatter ? nameFormatter(entry.name, entry) : entry.name;
+                            return (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: 2, background: entry.color || entry.stroke || entry.fill || '#f97316', flexShrink: 0 }} />
+                                        <span style={{ color: '#475569', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n}</span>
+                                    </div>
+                                    <span style={{ color: '#0f172a', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const ToggleLegend = ({ items, hidden, onToggle, align = 'end' }) => (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: align === 'end' ? 'flex-end' : 'flex-start' }}>
+                {items.map(it => {
+                    const off = hidden && hidden.has && hidden.has(it.key);
+                    return (
+                        <button
+                            key={it.key}
+                            type="button"
+                            onClick={() => onToggle && onToggle(it.key)}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all active:scale-95"
+                            style={{
+                                background: off ? 'rgba(148,163,184,0.12)' : 'rgba(249,115,22,0.08)',
+                                color: off ? '#94a3b8' : '#334155',
+                                border: '1px solid ' + (off ? 'rgba(148,163,184,0.25)' : 'rgba(249,115,22,0.2)'),
+                                textDecoration: off ? 'line-through' : 'none',
+                                opacity: off ? 0.7 : 1,
+                                cursor: 'pointer',
+                            }}
+                            aria-pressed={!off}
+                            aria-label={(off ? '表示: ' : '非表示: ') + it.label}
+                        >
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: off ? '#cbd5e1' : it.color, flexShrink: 0 }} />
+                            {it.label}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+
         const GoalRing = ({ value, max, size = 80, strokeWidth = 6, color = "#f97316", label, sublabel }) => {
             const radius = (size - strokeWidth) / 2;
             const circumference = 2 * Math.PI * radius;
@@ -11221,6 +11796,8 @@
                 <div className="min-h-screen bg-slate-50 bg-mesh relative">
                     {/* トースト通知 */}
                     <ToastContainer />
+                    {/* グローバル確認ダイアログ。imperative confirmDialog() Promise が解決される */}
+                    <ConfirmDialogContainer />
                     {/* トップローディングバー */}
                     <div className={`top-loading-bar ${memberData.loading || reportData.loading ? 'active' : ''}`}></div>
                     {/* 背景装飾オーブ */}
