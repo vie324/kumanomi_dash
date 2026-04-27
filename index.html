@@ -1211,9 +1211,116 @@
     </style>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+        const { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } = React;
         const RechartsLib = window.Recharts || {};
         const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, ComposedChart } = RechartsLib;
+
+        // ========================================
+        // モーション設定 (a11y - prefers-reduced-motion)
+        // ========================================
+        const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia
+            ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            : false;
+
+        const useReducedMotion = () => {
+            const [rm, setRm] = useState(prefersReducedMotion);
+            useEffect(() => {
+                if (typeof window === 'undefined' || !window.matchMedia) return;
+                const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+                const handler = (e) => setRm(e.matches);
+                if (mq.addEventListener) mq.addEventListener('change', handler);
+                else mq.addListener(handler);
+                return () => {
+                    if (mq.removeEventListener) mq.removeEventListener('change', handler);
+                    else mq.removeListener(handler);
+                };
+            }, []);
+            return rm;
+        };
+
+        // ========================================
+        // ローカル時刻ヘルパー（UTC ずれ回避）
+        // ========================================
+        const todayLocalYMD = () => {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+        const nowLocalHM = () => {
+            const d = new Date();
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        };
+        const thisMonthLocalYM = () => todayLocalYMD().slice(0, 7);
+        const shiftMonthLocalYM = (ym, delta) => {
+            const [y, m] = ym.split('-').map(Number);
+            const d = new Date(y, m - 1 + delta, 1);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        };
+
+        // ========================================
+        // ハプティック (Android 等で振動)
+        // ========================================
+        const _hapticEnabled = () => {
+            if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return false;
+            if (prefersReducedMotion) return false;
+            return true;
+        };
+        const hapticTap = () => { if (_hapticEnabled()) { try { navigator.vibrate(10); } catch (_) {} } };
+        const hapticSuccess = () => { if (_hapticEnabled()) { try { navigator.vibrate([8, 30, 8]); } catch (_) {} } };
+        const hapticError = () => { if (_hapticEnabled()) { try { navigator.vibrate([30, 20, 30]); } catch (_) {} } };
+
+        // ========================================
+        // debounce フック
+        // ========================================
+        const useDebounce = (value, delay = 300) => {
+            const [debounced, setDebounced] = useState(value);
+            useEffect(() => {
+                const t = setTimeout(() => setDebounced(value), delay);
+                return () => clearTimeout(t);
+            }, [value, delay]);
+            return debounced;
+        };
+
+        // ========================================
+        // 背景同期インジケータ
+        // ========================================
+        const backgroundSyncState = { count: 0, listeners: [] };
+        const startBackgroundSync = () => {
+            backgroundSyncState.count++;
+            backgroundSyncState.listeners.forEach(fn => fn(backgroundSyncState.count > 0));
+        };
+        const endBackgroundSync = () => {
+            backgroundSyncState.count = Math.max(0, backgroundSyncState.count - 1);
+            backgroundSyncState.listeners.forEach(fn => fn(backgroundSyncState.count > 0));
+        };
+        const useBackgroundSync = () => {
+            const [syncing, setSyncing] = useState(false);
+            useEffect(() => {
+                const fn = (s) => setSyncing(s);
+                backgroundSyncState.listeners.push(fn);
+                return () => { backgroundSyncState.listeners = backgroundSyncState.listeners.filter(l => l !== fn); };
+            }, []);
+            return syncing;
+        };
+
+        // ========================================
+        // グローバルキーボードショートカット
+        // ========================================
+        const keyboardState = { handlers: [] };
+        const registerShortcut = (handler) => {
+            keyboardState.handlers.push(handler);
+            return () => { keyboardState.handlers = keyboardState.handlers.filter(h => h !== handler); };
+        };
+        if (typeof window !== 'undefined' && !window.__kumanomiKeyHandlerAttached) {
+            window.__kumanomiKeyHandlerAttached = true;
+            window.addEventListener('keydown', (e) => {
+                for (const h of keyboardState.handlers) {
+                    try { if (h(e) === true) { e.preventDefault(); return; } } catch (_) {}
+                }
+            });
+        }
 
         // ========================================
         // 設定・定数
@@ -1335,8 +1442,10 @@
         const saveStaffListLocal = (list) => localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(list));
 
         // GASスプレッドシート経由のスタッフ管理
+        // UNIFIED_GAS_URL はデフォルトURL付きで定義済み。localStorage 上書きがあればそちらを優先。
+        const _gasUrl = () => localStorage.getItem('sise_unified_gas_url') || UNIFIED_GAS_URL;
         const gasPostRequest = async (body) => {
-            const gasUrl = localStorage.getItem('sise_unified_gas_url');
+            const gasUrl = _gasUrl();
             if (!gasUrl) return null;
             try {
                 const resp = await fetch(gasUrl, {
@@ -1347,6 +1456,61 @@
                 return await resp.json();
             } catch (e) {
                 console.warn('GAS POST エラー:', e);
+                return null;
+            }
+        };
+
+        // ============================================================
+        // dbGet / dbPost ブリッジ
+        // ============================================================
+        // 参考コードの Supabase 設計を GAS unified URL に転送するシム。
+        // /api/db?table=foo → unified.gs?type=foo に変換することで、
+        // 新ビュー（LineChat, Attendance, Customer360 等）の追加実装を
+        // GAS 側のエンドポイント拡張だけで対応できるようにする。
+        // 認証ヘッダ: URL の ?v=<base64> staff token があればヘッダに転送。
+        // ============================================================
+        const buildAuthHeaders = () => {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const token = params.get('v');
+                if (!token) return {};
+                let staffId = '';
+                try {
+                    const json = decodeURIComponent(escape(atob(token)));
+                    const decoded = JSON.parse(json);
+                    staffId = String(decoded.id || '');
+                } catch (_) {}
+                const headers = { 'X-Staff-Token': token };
+                if (staffId) headers['X-Staff-Id'] = staffId;
+                return headers;
+            } catch (_) { return {}; }
+        };
+
+        const dbGet = async (table, params = {}) => {
+            const gasUrl = _gasUrl();
+            if (!gasUrl) return null;
+            try {
+                const qs = new URLSearchParams({ type: table, ...params }).toString();
+                const resp = await fetch(gasUrl + '?' + qs, { headers: buildAuthHeaders() });
+                return await resp.json();
+            } catch (e) {
+                console.warn('dbGet エラー [' + table + ']:', e);
+                return null;
+            }
+        };
+
+        const dbPost = async (table, body) => {
+            const gasUrl = _gasUrl();
+            if (!gasUrl) return null;
+            try {
+                const resp = await fetch(gasUrl + '?type=' + table, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain', ...buildAuthHeaders() },
+                    body: JSON.stringify({ type: table, ...body })
+                });
+                return await resp.json();
+            } catch (e) {
+                console.warn('dbPost エラー [' + table + ']:', e);
                 return null;
             }
         };
