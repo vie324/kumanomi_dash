@@ -1028,6 +1028,86 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 
+        /* =========================================================
+           姿勢分析 (PostureAnalysisView)
+           ビデオを 9:16 で表示しつつ、上に SVG オーバーレイで骨格と
+           スコアラベルを重ねる。背景は黒寄せにして、コントラストを
+           高めて関節点が見やすいようにする。
+           ========================================================= */
+        .posture-shell {
+            min-height: calc(100dvh - 56px);
+            background: linear-gradient(135deg, #fffaf5 0%, #fff7ed 100%);
+            padding: 12px 12px 24px;
+        }
+        .dark .posture-shell {
+            background: linear-gradient(135deg, #1a0e04 0%, #1f1208 100%);
+        }
+        .posture-viewport {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            aspect-ratio: 9 / 16;
+            margin: 0 auto;
+            background: #0f172a;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 16px 40px -10px rgba(15,23,42,0.45);
+        }
+        .posture-viewport video,
+        .posture-viewport img.posture-frame {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .posture-viewport .posture-svg {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .posture-mode-tabs {
+            display: flex; gap: 4px;
+            padding: 4px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            margin: 0 auto 12px;
+            max-width: 280px;
+        }
+        .posture-mode-tab {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            font-weight: 700;
+            color: #64748b;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .posture-mode-tab.active {
+            background: #fff;
+            color: #9a3412;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+        .posture-score-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #fafaf9;
+            border: 1px solid #f1f5f9;
+            margin-bottom: 6px;
+        }
+        .posture-score-pill {
+            min-width: 44px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            color: #fff;
+            font-size: 13px; font-weight: 800;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
         /* Gradient button */
         .btn-gradient {
             background: linear-gradient(135deg, #f97316, #ea580c);
@@ -5329,6 +5409,584 @@
                                 <kbd style={{ padding:'2px 6px', borderRadius:4, background:'#f1f5f9', color:'#64748b', fontWeight:700 }}>Ctrl</kbd>+<kbd style={{ padding:'2px 6px', borderRadius:4, background:'#f1f5f9', color:'#64748b', fontWeight:700 }}>K</kbd>
                             </span>
                         </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // PostureAnalysisView (姿勢分析)
+        // ============================================================
+        // MediaPipe Pose をブラウザに動的ロードし、カメラ映像から関節点
+        // (33 点) を取得して、簡易的な姿勢スコアを算出する。
+        //
+        // 設計の目的:
+        // - 整体院でお客様の前後の姿を見せ、改善ポイントを共有する。
+        // - 専門的すぎる用語は避け、ぱっと見でわかるラベルを使う。
+        // - Before / After を任意でキャプチャし、左右比較で見せられる。
+        //
+        // 採用しているスコアリングは簡易な経験則（左右差・前方偏位・体軸
+        // のズレ等）であり、医学的診断を意図したものではない点に注意。
+        // 整体院の現場でお客様向けに「気づき」を共有する目的の指標。
+        // ============================================================
+
+        // MediaPipe Pose の関節点インデックス（必要なものだけ抜粋）。
+        const POSE_LM = {
+            NOSE: 0, LEFT_EYE: 1, RIGHT_EYE: 2,
+            LEFT_EAR: 3, RIGHT_EAR: 4,
+            LEFT_SHOULDER: 11, RIGHT_SHOULDER: 12,
+            LEFT_HIP: 23, RIGHT_HIP: 24,
+            LEFT_KNEE: 25, RIGHT_KNEE: 26,
+            LEFT_ANKLE: 27, RIGHT_ANKLE: 28,
+        };
+        // SVG / Canvas でつなぐ骨格ラインの定義（端点の対）
+        const POSE_LINES = [
+            ['LEFT_SHOULDER', 'RIGHT_SHOULDER'],
+            ['LEFT_SHOULDER', 'LEFT_HIP'],
+            ['RIGHT_SHOULDER', 'RIGHT_HIP'],
+            ['LEFT_HIP', 'RIGHT_HIP'],
+            ['LEFT_HIP', 'LEFT_KNEE'],
+            ['RIGHT_HIP', 'RIGHT_KNEE'],
+            ['LEFT_KNEE', 'LEFT_ANKLE'],
+            ['RIGHT_KNEE', 'RIGHT_ANKLE'],
+        ];
+
+        // 0..100 スコア → くまのみオレンジを基本にしたヒートカラー
+        const _scoreColor = (s) =>
+            s >= 80 ? '#16a34a' :   // 良好（緑）
+            s >= 60 ? '#84cc16' :   // やや良い（黄緑）
+            s >= 40 ? '#f97316' :   // 要改善（オレンジ = ブランド）
+            '#dc2626';              // 要施術（赤）
+        const _scoreLabel = (s) =>
+            s >= 80 ? '良好' :
+            s >= 60 ? 'やや注意' :
+            s >= 40 ? '要改善' :
+            '要施術';
+
+        // 線形に値 → スコアへ。
+        // value が 0 で 100、bad で 0 になる。間は線形補間してクリップする。
+        const _linearScore = (value, bad) => {
+            const v = Math.abs(value);
+            if (v <= 0) return 100;
+            if (v >= bad) return 0;
+            return Math.round(100 * (1 - v / bad));
+        };
+
+        // 2 点の中点
+        const _mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+        // 3 点の角度 (degrees) / a が頂点
+        const _angleDeg = (a, b, c) => {
+            const v1x = b.x - a.x, v1y = b.y - a.y;
+            const v2x = c.x - a.x, v2y = c.y - a.y;
+            const dot = v1x * v2x + v1y * v2y;
+            const m1 = Math.hypot(v1x, v1y);
+            const m2 = Math.hypot(v2x, v2y);
+            if (!m1 || !m2) return 0;
+            const cos = Math.max(-1, Math.min(1, dot / (m1 * m2)));
+            return Math.acos(cos) * (180 / Math.PI);
+        };
+
+        // 正面分析: 肩の傾き / 骨盤の傾き / 頭の左右ズレ / 重心の左右ズレ
+        const analyzeFront = (lm) => {
+            const ls = lm[POSE_LM.LEFT_SHOULDER],  rs = lm[POSE_LM.RIGHT_SHOULDER];
+            const lh = lm[POSE_LM.LEFT_HIP],        rh = lm[POSE_LM.RIGHT_HIP];
+            const nose = lm[POSE_LM.NOSE];
+            if (!ls || !rs || !lh || !rh || !nose) return null;
+            const sMid = _mid(ls, rs);
+            const hMid = _mid(lh, rh);
+            // 肩幅を基準に正規化（カメラ距離の差を吸収）
+            const shoulderWidth = Math.hypot(rs.x - ls.x, rs.y - ls.y) || 0.2;
+            // 度数化: y 差 / 肩幅 → ラジアン → degree
+            const shTilt = Math.abs(Math.atan2(rs.y - ls.y, rs.x - ls.x) * (180 / Math.PI));
+            const shTiltN = Math.min(shTilt, Math.abs(shTilt - 180));
+            const hpTilt = Math.abs(Math.atan2(rh.y - lh.y, rh.x - lh.x) * (180 / Math.PI));
+            const hpTiltN = Math.min(hpTilt, Math.abs(hpTilt - 180));
+            // 頭の偏位: 鼻が肩中点からどれだけ横にズレているか
+            const headOffset = Math.abs(nose.x - sMid.x) / shoulderWidth;
+            // 体軸の偏位: 肩中点 vs 腰中点
+            const centerOffset = Math.abs(sMid.x - hMid.x) / shoulderWidth;
+            return {
+                items: [
+                    {
+                        key: 'shoulder', label: '肩の左右バランス',
+                        value: shTiltN.toFixed(1) + '°',
+                        score: _linearScore(shTiltN, 12),
+                        detail: shTiltN < 1 ? '均等' : (ls.y < rs.y ? '左肩が高い' : '右肩が高い'),
+                    },
+                    {
+                        key: 'hip', label: '骨盤の左右バランス',
+                        value: hpTiltN.toFixed(1) + '°',
+                        score: _linearScore(hpTiltN, 12),
+                        detail: hpTiltN < 1 ? '均等' : (lh.y < rh.y ? '左が高い' : '右が高い'),
+                    },
+                    {
+                        key: 'head', label: '頭の位置',
+                        value: (headOffset * 100).toFixed(1) + '%',
+                        score: _linearScore(headOffset * 100, 8),
+                        detail: headOffset < 0.01 ? '正中' : (nose.x < sMid.x ? '左に傾斜' : '右に傾斜'),
+                    },
+                    {
+                        key: 'center', label: '体軸の左右ズレ',
+                        value: (centerOffset * 100).toFixed(1) + '%',
+                        score: _linearScore(centerOffset * 100, 8),
+                        detail: centerOffset < 0.01 ? '正中' : (sMid.x < hMid.x ? '左にズレ' : '右にズレ'),
+                    },
+                ],
+            };
+        };
+
+        // 側面分析: 頭の前方偏位 / 巻き肩 / 骨盤の前後傾
+        const analyzeSide = (lm) => {
+            const ear = lm[POSE_LM.LEFT_EAR];
+            const sh  = lm[POSE_LM.LEFT_SHOULDER];
+            const hip = lm[POSE_LM.LEFT_HIP];
+            const knee = lm[POSE_LM.LEFT_KNEE];
+            if (!ear || !sh || !hip) return null;
+            const shHipDist = Math.hypot(sh.x - hip.x, sh.y - hip.y) || 0.15;
+            // 頭の前方偏位: 耳が肩よりどれだけ前か
+            const headFwd = (ear.x - sh.x) / shHipDist;
+            // 肩-腰-膝のラインの直立度（理想 ≒ 180°）
+            const shAngle = _angleDeg(sh, ear, hip); // 肩を頂点に耳と腰
+            // 鎖骨-肩-腰の角度（巻き肩）
+            const rollAngle = _angleDeg(sh, ear, hip);
+            // 骨盤の前後傾: 肩-腰-膝の角度 (理想 ≒ 175°)
+            const pelvicAngle = knee ? _angleDeg(hip, sh, knee) : 175;
+            return {
+                items: [
+                    {
+                        key: 'head-fwd', label: '頭の前方偏位',
+                        value: (headFwd * 100).toFixed(1) + '%',
+                        score: _linearScore(Math.max(0, headFwd) * 100, 18),
+                        detail: headFwd < 0.02 ? '良好' : (headFwd < 0.08 ? '軽度の前方偏位' : 'ストレートネック傾向'),
+                    },
+                    {
+                        key: 'roll', label: '巻き肩・猫背',
+                        value: rollAngle.toFixed(0) + '°',
+                        score: _linearScore(180 - rollAngle, 35),
+                        detail: rollAngle >= 160 ? '良好' : (rollAngle >= 145 ? '軽度の巻き肩' : '巻き肩傾向'),
+                    },
+                    {
+                        key: 'pelvic', label: '骨盤の前後傾',
+                        value: pelvicAngle.toFixed(0) + '°',
+                        score: _linearScore(Math.abs(pelvicAngle - 175), 18),
+                        detail: Math.abs(pelvicAngle - 175) < 5 ? '正常範囲' : (pelvicAngle > 175 ? '後傾傾向' : '前傾傾向'),
+                    },
+                ],
+            };
+        };
+
+        // 全項目の平均スコア（小数点切り捨て）
+        const _totalScore = (analysis) => {
+            if (!analysis || !analysis.items || !analysis.items.length) return null;
+            const sum = analysis.items.reduce((s, it) => s + it.score, 0);
+            return Math.round(sum / analysis.items.length);
+        };
+
+        // MediaPipe Pose の動的ロード（最初の利用時に 1 回だけ）
+        let _poseLoadPromise = null;
+        const loadMediaPipePose = () => {
+            if (window.Pose) return Promise.resolve(window.Pose);
+            if (_poseLoadPromise) return _poseLoadPromise;
+            _poseLoadPromise = new Promise((resolve, reject) => {
+                const sc = document.createElement('script');
+                sc.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+                sc.async = true;
+                sc.onload = () => {
+                    // pose.js は window.Pose を遅延設定するので少し待つ
+                    setTimeout(() => window.Pose ? resolve(window.Pose) : reject(new Error('Pose 未定義')), 200);
+                };
+                sc.onerror = () => reject(new Error('MediaPipe Pose の読み込みに失敗しました'));
+                document.head.appendChild(sc);
+            });
+            return _poseLoadPromise;
+        };
+
+        const PostureAnalysisView = () => {
+            const [mode, setMode]             = useState('front'); // 'front' | 'side'
+            const [phase, setPhase]           = useState('idle'); // idle | loading | live | captured
+            const [errorMsg, setErrorMsg]     = useState('');
+            const [landmarks, setLandmarks]   = useState(null);
+            const [analysis, setAnalysis]     = useState(null);
+            const [capturedImg, setCapturedImg] = useState(null);
+            const [overlayOn, setOverlayOn]   = useState(true);
+            // Before / After 比較: スロットに保存しておくと、左右並びで差分表示
+            const [beforeData, setBeforeData] = useState(null); // { mode, image, landmarks, analysis }
+            const [afterData, setAfterData]   = useState(null);
+
+            const videoRef  = useRef(null);
+            const streamRef = useRef(null);
+            const poseRef   = useRef(null);
+            const animRef   = useRef(null);
+
+            const stopCamera = useCallback(() => {
+                if (animRef.current) cancelAnimationFrame(animRef.current);
+                animRef.current = null;
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(t => t.stop());
+                    streamRef.current = null;
+                }
+                if (videoRef.current) videoRef.current.srcObject = null;
+            }, []);
+
+            // unmount 時のクリーンアップ
+            useEffect(() => {
+                return () => stopCamera();
+            }, [stopCamera]);
+
+            // mode 変更で内部状態をリセット
+            useEffect(() => {
+                stopCamera();
+                setPhase('idle');
+                setLandmarks(null); setAnalysis(null); setCapturedImg(null);
+                setErrorMsg('');
+            }, [mode, stopCamera]);
+
+            const startCamera = useCallback(async () => {
+                setPhase('loading');
+                setErrorMsg('');
+                setLandmarks(null); setAnalysis(null); setCapturedImg(null);
+                try {
+                    const Pose = await loadMediaPipePose();
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width:  { ideal: 1280 },
+                            height: { ideal: 960 },
+                            facingMode: { ideal: 'environment' },
+                        },
+                        audio: false,
+                    });
+                    streamRef.current = stream;
+                    const v = videoRef.current;
+                    if (!v) throw new Error('viewport 要素がありません');
+                    v.srcObject = stream;
+                    await v.play();
+                    if (!poseRef.current) {
+                        const pose = new Pose({
+                            locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`,
+                        });
+                        pose.setOptions({
+                            modelComplexity: 1,        // 1 で十分な精度・速度
+                            smoothLandmarks: true,
+                            enableSegmentation: false,
+                            minDetectionConfidence: 0.6,
+                            minTrackingConfidence: 0.6,
+                        });
+                        pose.onResults((results) => {
+                            if (results.poseLandmarks) setLandmarks(results.poseLandmarks);
+                        });
+                        await pose.initialize();
+                        poseRef.current = pose;
+                    }
+                    setPhase('live');
+                    const tick = async () => {
+                        if (!streamRef.current) return;
+                        try { await poseRef.current.send({ image: v }); } catch (_) {}
+                        animRef.current = requestAnimationFrame(tick);
+                    };
+                    tick();
+                } catch (e) {
+                    console.error('[posture] start error:', e);
+                    setErrorMsg(e.message || 'カメラを起動できませんでした');
+                    setPhase('idle');
+                    stopCamera();
+                }
+            }, [stopCamera]);
+
+            // 解析: ライブ中も captured 後も実行
+            useEffect(() => {
+                if (!landmarks) return;
+                const a = mode === 'front' ? analyzeFront(landmarks) : analyzeSide(landmarks);
+                setAnalysis(a);
+            }, [landmarks, mode]);
+
+            const capture = useCallback(() => {
+                const v = videoRef.current;
+                if (!v) return;
+                const c = document.createElement('canvas');
+                c.width = v.videoWidth; c.height = v.videoHeight;
+                c.getContext('2d').drawImage(v, 0, 0);
+                setCapturedImg(c.toDataURL('image/jpeg', 0.92));
+                setPhase('captured');
+                stopCamera();
+            }, [stopCamera]);
+
+            const retake = useCallback(() => {
+                setCapturedImg(null); setLandmarks(null); setAnalysis(null);
+                setPhase('idle');
+            }, []);
+
+            const total = analysis ? _totalScore(analysis) : null;
+
+            // 現在のキャプチャを Before / After のスロットへ保存
+            const stash = useCallback((slot) => {
+                if (!capturedImg || !analysis) {
+                    showToast('先に撮影・分析を行ってください', 'info', 1800);
+                    return;
+                }
+                const data = { mode, image: capturedImg, landmarks: landmarks ? [...landmarks] : null, analysis };
+                if (slot === 'before') setBeforeData(data); else setAfterData(data);
+                showToast(slot === 'before' ? 'Before に保存しました' : 'After に保存しました', 'success', 1600);
+                hapticTap();
+            }, [mode, capturedImg, analysis, landmarks]);
+
+            const clearCompare = () => { setBeforeData(null); setAfterData(null); };
+
+            const downloadCurrent = () => {
+                if (!capturedImg) return;
+                const a = document.createElement('a');
+                a.download = `posture_${mode}_${todayLocalYMD()}.jpg`;
+                a.href = capturedImg;
+                document.body.appendChild(a); a.click(); a.remove();
+            };
+
+            return (
+                <div className="posture-shell">
+                    <div className="max-w-2xl mx-auto">
+                        {/* タイトル */}
+                        <div className="flex items-center gap-2 mb-3">
+                            <Icon name="scan" size={18} className="text-sise-500" />
+                            <h2 className="text-base font-extrabold text-slate-800">姿勢分析</h2>
+                            <span className="text-[10px] font-bold text-slate-400 ml-auto tracking-widest">POSTURE</span>
+                        </div>
+
+                        {/* モード切替 */}
+                        <div className="posture-mode-tabs">
+                            <button onClick={() => setMode('front')}
+                                    className={`posture-mode-tab ${mode === 'front' ? 'active' : ''}`}>
+                                正面
+                            </button>
+                            <button onClick={() => setMode('side')}
+                                    className={`posture-mode-tab ${mode === 'side' ? 'active' : ''}`}>
+                                側面
+                            </button>
+                        </div>
+
+                        {/* ビューポート: video + 画像 + SVG */}
+                        <div className="posture-viewport">
+                            <video ref={videoRef} playsInline muted
+                                   style={{ display: phase === 'live' ? 'block' : 'none' }} />
+                            {capturedImg && phase === 'captured' && (
+                                <img src={capturedImg} alt="capture" className="posture-frame" />
+                            )}
+                            {/* 関節点とスケルトン */}
+                            {overlayOn && landmarks && (
+                                <svg className="posture-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
+                                    {POSE_LINES.map(([a, b], i) => {
+                                        const la = landmarks[POSE_LM[a]];
+                                        const lb = landmarks[POSE_LM[b]];
+                                        if (!la || !lb || la.visibility < 0.5 || lb.visibility < 0.5) return null;
+                                        return (
+                                            <line key={i}
+                                                  x1={la.x} y1={la.y} x2={lb.x} y2={lb.y}
+                                                  stroke="rgba(249,115,22,0.85)" strokeWidth="0.006"
+                                                  strokeLinecap="round" />
+                                        );
+                                    })}
+                                    {Object.values(POSE_LM).map((idx) => {
+                                        const p = landmarks[idx];
+                                        if (!p || p.visibility < 0.5) return null;
+                                        return (
+                                            <circle key={idx} cx={p.x} cy={p.y} r="0.008"
+                                                    fill="#f97316" stroke="#fff" strokeWidth="0.003" />
+                                        );
+                                    })}
+                                </svg>
+                            )}
+                            {/* 状態オーバーレイ */}
+                            {phase === 'idle' && !capturedImg && (
+                                <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:14, color:'#cbd5e1', textAlign:'center', padding:24 }}>
+                                    <Icon name="camera" size={32} />
+                                    <p style={{ fontSize:13, lineHeight:1.6 }}>
+                                        {mode === 'front'
+                                            ? 'お客様の正面全身がフレームに収まるように\nカメラを起動してください'
+                                            : 'お客様の左側面（左肩〜左足）が\nフレームに収まるようにしてください'}
+                                    </p>
+                                </div>
+                            )}
+                            {phase === 'loading' && (
+                                <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', gap:10, color:'#fff', background:'rgba(0,0,0,.45)' }}>
+                                    <Spinner size={18} />
+                                    <span style={{ fontSize:13, fontWeight:700 }}>カメラ・AI 読み込み中…</span>
+                                </div>
+                            )}
+                            {phase === 'live' && (
+                                <div style={{ position:'absolute', top:10, right:10, display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:999, background:'rgba(0,0,0,.5)', color:'#fff' }}>
+                                    <span style={{ width:6, height:6, borderRadius:'50%', background:'#ef4444', animation:'pulse 1.4s ease-in-out infinite' }} />
+                                    <span style={{ fontSize:10, fontWeight:800 }}>LIVE</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* アクション */}
+                        <div className="flex items-center gap-2 mt-3 max-w-md mx-auto">
+                            {phase === 'idle' && (
+                                <Button variant="primary" className="flex-1"
+                                        leftIcon={<Icon name="play" size={14} />}
+                                        onClick={startCamera}>
+                                    カメラ起動
+                                </Button>
+                            )}
+                            {phase === 'live' && (
+                                <>
+                                    <Button variant="primary" className="flex-1"
+                                            leftIcon={<Icon name="aperture" size={14} />}
+                                            onClick={capture} disabled={!landmarks}>
+                                        キャプチャ
+                                    </Button>
+                                    <Button variant="ghost" onClick={() => { stopCamera(); setPhase('idle'); }}>
+                                        停止
+                                    </Button>
+                                </>
+                            )}
+                            {phase === 'captured' && (
+                                <>
+                                    <Button variant="secondary" className="flex-1"
+                                            leftIcon={<Icon name="rotate-ccw" size={14} />}
+                                            onClick={retake}>
+                                        撮り直し
+                                    </Button>
+                                    <Button variant="ghost"
+                                            leftIcon={<Icon name="download" size={14} />}
+                                            onClick={downloadCurrent}>
+                                        保存
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+
+                        {/* オーバーレイ切替 */}
+                        {(phase === 'live' || phase === 'captured') && (
+                            <div className="flex items-center justify-center mt-2">
+                                <button onClick={() => setOverlayOn(o => !o)}
+                                        className="text-xs text-slate-500 hover:text-sise-600 px-3 py-1.5 rounded-lg hover:bg-sise-50 transition">
+                                    <Icon name={overlayOn ? 'eye' : 'eye-off'} size={12} className="inline mr-1" />
+                                    骨格表示 {overlayOn ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
+                        )}
+
+                        {errorMsg && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
+                                <Icon name="alert-circle" size={14} className="mt-0.5" />
+                                <span>{errorMsg}</span>
+                            </div>
+                        )}
+
+                        {/* スコア表示 */}
+                        {analysis && (phase === 'captured' || phase === 'live') && (
+                            <div className="mt-4 max-w-md mx-auto">
+                                {/* 総合スコア */}
+                                {total !== null && (
+                                    <div className="flex items-center gap-3 p-4 rounded-2xl mb-3"
+                                         style={{ background: '#fff', border: `2px solid ${_scoreColor(total)}` }}>
+                                        <div style={{ width:56, height:56, borderRadius:'50%', background:_scoreColor(total), color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900 }}>
+                                            {total}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[10px] font-bold text-slate-400 tracking-widest">TOTAL SCORE</div>
+                                            <div className="text-base font-bold" style={{ color:_scoreColor(total) }}>
+                                                {_scoreLabel(total)}
+                                            </div>
+                                            <div className="text-[11px] text-slate-500 mt-0.5">
+                                                {mode === 'front' ? '正面分析' : '側面分析'} ・ {analysis.items.length}項目
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* 個別項目 */}
+                                <div className="flex flex-col gap-1">
+                                    {analysis.items.map(item => (
+                                        <div key={item.key} className="posture-score-row">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-bold text-slate-700">{item.label}</div>
+                                                <div className="text-[11px] text-slate-400 mt-0.5">
+                                                    {item.detail} ・ {item.value}
+                                                </div>
+                                            </div>
+                                            <span className="posture-score-pill"
+                                                  style={{ background: _scoreColor(item.score) }}>
+                                                {item.score}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Before / After 比較スロット */}
+                        {phase === 'captured' && (
+                            <div className="mt-4 max-w-md mx-auto p-3 rounded-xl border border-slate-200 bg-white/60">
+                                <div className="text-[11px] font-bold text-slate-500 mb-2 tracking-widest">BEFORE / AFTER 比較</div>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" size="sm" className="flex-1"
+                                            onClick={() => stash('before')}>
+                                        Before に保存
+                                    </Button>
+                                    <Button variant="secondary" size="sm" className="flex-1"
+                                            onClick={() => stash('after')}>
+                                        After に保存
+                                    </Button>
+                                    {(beforeData || afterData) && (
+                                        <Button variant="ghost" size="sm" onClick={clearCompare}>
+                                            クリア
+                                        </Button>
+                                    )}
+                                </div>
+                                {(beforeData || afterData) && (
+                                    <div className="grid grid-cols-2 gap-2 mt-3">
+                                        {['before', 'after'].map(slot => {
+                                            const data = slot === 'before' ? beforeData : afterData;
+                                            const label = slot === 'before' ? 'Before' : 'After';
+                                            if (!data) {
+                                                return (
+                                                    <div key={slot} className="aspect-[3/4] rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-400">
+                                                        {label} 未保存
+                                                    </div>
+                                                );
+                                            }
+                                            const t = _totalScore(data.analysis);
+                                            return (
+                                                <div key={slot} className="rounded-xl overflow-hidden border border-slate-200">
+                                                    <div className="aspect-[3/4] bg-slate-900 relative">
+                                                        <img src={data.image} alt={label}
+                                                             style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                                                        <div style={{ position:'absolute', top:6, left:6, padding:'2px 8px', borderRadius:6, background:'rgba(0,0,0,.55)', color:'#fff', fontSize:10, fontWeight:800 }}>
+                                                            {label}
+                                                        </div>
+                                                        {t !== null && (
+                                                            <div style={{ position:'absolute', bottom:6, right:6, padding:'3px 9px', borderRadius:999, background:_scoreColor(t), color:'#fff', fontSize:11, fontWeight:800 }}>
+                                                                {t}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {beforeData && afterData && (() => {
+                                    const bt = _totalScore(beforeData.analysis);
+                                    const at = _totalScore(afterData.analysis);
+                                    const diff = at - bt;
+                                    return (
+                                        <div className="mt-3 p-2.5 rounded-lg text-center"
+                                             style={{ background: diff >= 0 ? '#f0fdf4' : '#fef2f2',
+                                                      border: '1px solid ' + (diff >= 0 ? '#bbf7d0' : '#fecaca') }}>
+                                            <span className="text-xs font-bold"
+                                                  style={{ color: diff >= 0 ? '#16a34a' : '#dc2626' }}>
+                                                スコア変化: {bt} → {at} ({diff >= 0 ? '+' : ''}{diff})
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+
+                        <p className="text-[10px] text-slate-400 text-center mt-4 max-w-md mx-auto leading-relaxed">
+                            ※ スコアは MediaPipe Pose の関節点から算出した簡易な指標です。<br />
+                            医療的診断ではなく、施術前後の変化を共有する目的でご利用ください。
+                        </p>
                     </div>
                 </div>
             );
@@ -12809,8 +13467,7 @@
                         return <ComingSoon title="施術レポート" icon="file-heart"
                             description="施術内容・スコア・宿題ストレッチをまとめてLINEで送れるレポート画面を準備中です。" />;
                     case 'posture':
-                        return <ComingSoon title="姿勢分析" icon="scan"
-                            description="MediaPipe Pose を使って正面・側面・座位の姿勢スコアを自動算出する画面を準備中です。" />;
+                        return <PostureAnalysisView />;
                     case 'line':
                         return <ComingSoon title="LINEチャット" icon="message-circle"
                             description="お客様とのLINE会話・テンプレ・自動応答・配信を一括管理する画面を準備中です。" />;
