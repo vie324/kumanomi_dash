@@ -1220,6 +1220,134 @@
             background: linear-gradient(90deg, #f97316, #ea580c);
         }
 
+        /* =========================================================
+           LINE チャット (LineChatView)
+           モバイル: スレッド一覧 ↔ 会話ビューを画面遷移で切替。
+           デスクトップ: 左にスレッド一覧、右に会話の 2 ペイン。
+           吹き出しは送信(右側オレンジ) / 受信(左側白) で配色。
+           ========================================================= */
+        .lc-shell {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0;
+            background: #fafaf9;
+            border: 1px solid rgba(249,115,22,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            min-height: 60vh;
+        }
+        @media (min-width: 1024px) {
+            .lc-shell {
+                grid-template-columns: 320px 1fr;
+                min-height: calc(100dvh - 180px);
+            }
+        }
+        .dark .lc-shell { background: #170d03; border-color: rgba(249,115,22,0.18); }
+
+        .lc-thread-list {
+            display: flex; flex-direction: column;
+            border-right: 1px solid rgba(249,115,22,0.08);
+            background: #fff;
+            min-height: 0;
+        }
+        .dark .lc-thread-list { background: #1f1208; border-right-color: rgba(249,115,22,0.18); }
+        .lc-thread-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(249,115,22,0.04);
+            cursor: pointer;
+            text-align: left; background: none; border-left: none; border-right: none; border-top: none;
+            transition: background 0.12s ease;
+            color: inherit;
+            width: 100%;
+        }
+        .lc-thread-item:hover { background: rgba(249,115,22,0.04); }
+        .lc-thread-item.active { background: rgba(249,115,22,0.08); }
+        .lc-thread-item .lc-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: #fed7aa; color: #9a3412;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 800;
+            flex-shrink: 0;
+        }
+        .lc-thread-item img.lc-avatar {
+            object-fit: cover;
+        }
+
+        .lc-chat-pane {
+            display: flex; flex-direction: column;
+            background: #fafaf9;
+            min-height: 0;
+        }
+        .dark .lc-chat-pane { background: #170d03; }
+        .lc-chat-header {
+            padding: 12px 14px;
+            display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid rgba(249,115,22,0.08);
+            background: #fff;
+        }
+        .dark .lc-chat-header { background: #1f1208; }
+        .lc-chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 12px;
+            display: flex; flex-direction: column;
+            gap: 6px;
+        }
+        .lc-msg {
+            max-width: 75%;
+            padding: 8px 12px;
+            border-radius: 14px;
+            font-size: 13px; line-height: 1.5;
+            word-break: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .lc-msg.received {
+            align-self: flex-start;
+            background: #fff;
+            color: #1e293b;
+            border-bottom-left-radius: 4px;
+        }
+        .lc-msg.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .lc-msg.sent.failed {
+            background: #fecaca;
+            color: #7f1d1d;
+        }
+        .lc-msg .lc-time {
+            display: block;
+            font-size: 9px;
+            margin-top: 2px;
+            opacity: 0.65;
+        }
+        .lc-composer {
+            display: flex; gap: 8px;
+            padding: 10px 12px;
+            border-top: 1px solid rgba(249,115,22,0.08);
+            background: #fff;
+        }
+        .dark .lc-composer { background: #1f1208; border-top-color: rgba(249,115,22,0.18); }
+        .lc-composer textarea {
+            flex: 1;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+            resize: none;
+            min-height: 44px;
+            max-height: 140px;
+            outline: none;
+            font-family: inherit;
+        }
+        .lc-composer textarea:focus {
+            border-color: #f97316;
+            box-shadow: 0 0 0 3px rgba(249,115,22,0.15);
+        }
+
         /* Gradient button */
         .btn-gradient {
             background: linear-gradient(135deg, #f97316, #ea580c);
@@ -2358,6 +2486,152 @@
             return {
                 records, loading, saving, todayRecord, error,
                 fetchRecords, clockIn, clockOut, checkTodayStatus,
+            };
+        };
+
+        // ============================================================
+        // useLineChat hook
+        // ============================================================
+        // GAS の unified.gs に以下エンドポイントを実装済みである前提:
+        //   GET  ?type=lineConfig                 → { configured, stores }
+        //   GET  ?type=lineThreads&store=<id>     → { threads, profiles }
+        //   GET  ?type=lineMessages&store=<id>&userId=<u>&limit=<n>
+        //                                         → { messages }
+        //   POST ?type=lineMessages action=send   → { ok, record }
+        //
+        // 未実装の場合は dbGet が null や {error} を返すので、
+        // hook 側はその場合「サーバ未設定」状態に留めて UI を壊さない。
+        // ============================================================
+        const useLineChat = () => {
+            const [config, setConfig]       = useState({ configured: null, stores: [] });
+            const [storeId, setStoreIdState]= useState('');
+            const [threads, setThreads]     = useState([]);
+            const [profiles, setProfiles]   = useState({});
+            const [messages, setMessages]   = useState([]);
+            const [activeThread, setActiveThread] = useState(null);
+            const [loading, setLoading]     = useState(false);
+            const [sending, setSending]     = useState(false);
+            const [serverError, setServerError] = useState(null);
+
+            // 設定取得（初回 + 5 分ごとに念のため再取得）
+            const fetchConfig = useCallback(async () => {
+                const data = await dbGet('lineConfig');
+                if (!data) { setConfig({ configured: false, stores: [] }); setServerError('GAS未応答'); return; }
+                if (data.error) { setConfig({ configured: false, stores: [] }); setServerError(data.error); return; }
+                setServerError(null);
+                setConfig({
+                    configured: !!data.configured,
+                    stores: Array.isArray(data.stores) ? data.stores : [],
+                });
+                if (!storeId) {
+                    const s0 = (data.stores || [])[0];
+                    if (s0) setStoreIdState(s0.id);
+                }
+            }, [storeId]);
+            useEffect(() => { fetchConfig(); }, []);
+
+            // スレッド一覧を取得（profiles も同時に返ってくる前提）
+            const fetchThreads = useCallback(async (sid = storeId) => {
+                if (!sid) return;
+                setLoading(true);
+                try {
+                    const data = await dbGet('lineThreads', { store: sid });
+                    if (data && !data.error) {
+                        setThreads(Array.isArray(data.threads) ? data.threads : []);
+                        const pmap = {};
+                        (data.profiles || []).forEach(p => { if (p && p.userId) pmap[p.userId] = p; });
+                        setProfiles(pmap);
+                        setServerError(null);
+                    } else {
+                        setThreads([]); setProfiles({});
+                        if (data && data.error) setServerError(data.error);
+                    }
+                } finally { setLoading(false); }
+            }, [storeId]);
+
+            // 1 スレッド分のメッセージ取得
+            const fetchMessages = useCallback(async (userId, sid = storeId) => {
+                if (!sid || !userId) { setMessages([]); return; }
+                setLoading(true);
+                try {
+                    const data = await dbGet('lineMessages', { store: sid, userId, limit: '120' });
+                    setMessages(data && data.messages ? data.messages : []);
+                    if (data && data.error) setServerError(data.error);
+                } finally { setLoading(false); }
+            }, [storeId]);
+
+            // 30 秒ごとに自動更新
+            useEffect(() => {
+                if (!storeId) return;
+                fetchThreads(storeId);
+                const interval = setInterval(() => {
+                    if (activeThread && activeThread.userId) {
+                        fetchMessages(activeThread.userId, storeId);
+                    } else {
+                        fetchThreads(storeId);
+                    }
+                }, 30000);
+                return () => clearInterval(interval);
+            }, [storeId, activeThread, fetchThreads, fetchMessages]);
+
+            // 送信。楽観的に local messages に追加し、エラー時は marker を立てる。
+            const sendMessage = useCallback(async (text) => {
+                if (!storeId || !activeThread || !activeThread.userId) return false;
+                const t = (text || '').trim();
+                if (!t) return false;
+                setSending(true);
+                const tempId = 'local_' + Date.now();
+                const optimistic = {
+                    messageId: tempId,
+                    storeId, userId: activeThread.userId,
+                    direction: 'sent', messageType: 'text', messageText: t,
+                    timestamp: new Date().toISOString(),
+                    _pending: true,
+                };
+                setMessages(prev => [...prev, optimistic]);
+                try {
+                    const res = await dbPost('lineMessages', {
+                        action: 'send',
+                        storeId, userId: activeThread.userId,
+                        text: t,
+                    });
+                    if (!res || !res.ok || res.error) {
+                        const msg = (res && res.error) || 'サーバ未応答';
+                        showToast('LINE 送信に失敗: ' + msg, 'error');
+                        hapticError();
+                        // 楽観追加した行に失敗マーカーを立てる
+                        setMessages(prev => prev.map(m =>
+                            m.messageId === tempId ? { ...m, _pending: false, _failed: true } : m));
+                        return false;
+                    }
+                    // サーバが record を返してくれれば差し替え
+                    setMessages(prev => prev.map(m =>
+                        m.messageId === tempId ? { ...(res.record || optimistic), _pending: false } : m));
+                    hapticSuccess();
+                    return true;
+                } finally {
+                    setSending(false);
+                }
+            }, [storeId, activeThread]);
+
+            const setStoreId = useCallback((sid) => {
+                setStoreIdState(sid);
+                setActiveThread(null);
+                setMessages([]);
+            }, []);
+
+            const openThread = useCallback((thread) => {
+                setActiveThread(thread);
+                setMessages([]);
+                fetchMessages(thread.userId, storeId);
+            }, [fetchMessages, storeId]);
+
+            return {
+                config, storeId, setStoreId,
+                threads, profiles, messages,
+                activeThread, openThread, setActiveThread,
+                loading, sending, serverError,
+                fetchConfig, fetchThreads, fetchMessages, sendMessage,
             };
         };
 
@@ -7076,6 +7350,283 @@
                             )}
                         </div>
                     )}
+                </div>
+            );
+        };
+
+        // ============================================================
+        // LineChatView (LINE チャット)
+        // ============================================================
+        // - モバイルは画面遷移（スレッド一覧 ↔ 会話）
+        // - デスクトップは左右 2 ペイン（一覧 / 会話）
+        // - 30 秒ごとに自動更新（hook 側で実装）
+        // - GAS 未実装の場合は「サーバ未設定」状態を表示し UI は壊れない
+        // ============================================================
+        const _lineFmtTime = (ts) => {
+            if (!ts) return '';
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '';
+            const now = new Date();
+            const sameDay = d.toDateString() === now.toDateString();
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            if (sameDay) return `${hh}:${mm}`;
+            return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+        };
+
+        const _lineDisplayName = (profile, fallbackUserId) => {
+            if (profile && profile.displayName) return profile.displayName;
+            const tail = (fallbackUserId || '').slice(-4);
+            return tail ? `お客様 #${tail}` : 'お客様';
+        };
+
+        const LineChatView = ({ lineChatHook }) => {
+            const {
+                config, storeId, setStoreId,
+                threads, profiles, messages,
+                activeThread, openThread, setActiveThread,
+                loading, sending, serverError,
+                fetchThreads, fetchMessages, sendMessage,
+            } = lineChatHook;
+
+            const [draft, setDraft] = useState('');
+            const [searchQuery, setSearchQuery] = useState('');
+            const debouncedSearch = useDebounce(searchQuery, 200);
+            const bodyRef = useRef(null);
+
+            // 新着メッセージで一番下までスクロール
+            useEffect(() => {
+                if (bodyRef.current) {
+                    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+                }
+            }, [messages, activeThread]);
+
+            const filteredThreads = useMemo(() => {
+                const q = debouncedSearch.trim().toLowerCase();
+                if (!q) return threads;
+                return threads.filter(t => {
+                    const name = _lineDisplayName(profiles[t.userId], t.userId).toLowerCase();
+                    if (name.includes(q)) return true;
+                    if (t.lastMessageText && t.lastMessageText.toLowerCase().includes(q)) return true;
+                    return false;
+                });
+            }, [threads, profiles, debouncedSearch]);
+
+            const handleSend = async () => {
+                if (!draft.trim()) return;
+                const ok = await sendMessage(draft);
+                if (ok) setDraft('');
+            };
+
+            // 設定が GAS から取れていない / configured = false の場合の案内
+            if (config.configured === false) {
+                return (
+                    <div className="max-w-xl mx-auto py-8">
+                        <EmptyState icon="message-circle"
+                            title="LINE 連携が未設定です"
+                            message={
+                                serverError
+                                    ? `GAS との通信ができていません: ${serverError}`
+                                    : 'GAS の unified.gs に LINE 用エンドポイント (lineConfig / lineThreads / lineMessages) を追加し、Channel Access Token を Properties に登録してください。'
+                            } />
+                    </div>
+                );
+            }
+            // 初回ロード前（configured が null）
+            if (config.configured === null) {
+                return (
+                    <div className="max-w-xl mx-auto py-8 text-center text-slate-400">
+                        <Spinner size={20} /> <span className="ml-2 text-sm">LINE 設定を読み込み中…</span>
+                    </div>
+                );
+            }
+
+            const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+            const showList = !isMobile || !activeThread;
+            const showChat = !isMobile || !!activeThread;
+
+            return (
+                <div className="max-w-6xl mx-auto p-3">
+                    {/* ヘッダ */}
+                    <div className="flex items-center gap-2 mb-3">
+                        <Icon name="message-circle" size={18} className="text-sise-500" />
+                        <h2 className="text-base font-extrabold text-slate-800">LINE チャット</h2>
+                        {config.stores.length > 1 && (
+                            <select value={storeId}
+                                    onChange={(e) => setStoreId(e.target.value)}
+                                    className="ml-2 px-2 py-1 border border-slate-200 rounded-lg text-xs bg-white">
+                                {config.stores.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        )}
+                        <span className="ml-auto">
+                            <Button variant="ghost" size="sm"
+                                    leftIcon={<Icon name="refresh-cw" size={12} />}
+                                    onClick={() => fetchThreads(storeId)}>更新</Button>
+                        </span>
+                    </div>
+
+                    {serverError && (
+                        <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 flex items-start gap-2">
+                            <Icon name="alert-triangle" size={13} className="mt-0.5" />
+                            <span>{serverError}</span>
+                        </div>
+                    )}
+
+                    <div className="lc-shell">
+                        {/* スレッド一覧 */}
+                        {showList && (
+                            <div className="lc-thread-list">
+                                <div className="p-2.5 border-b border-slate-100">
+                                    <FloatingInput label="お名前で検索" value={searchQuery}
+                                                   onChange={(e) => setSearchQuery(e.target.value)}
+                                                   leftIcon={<Icon name="search" size={13} />} />
+                                </div>
+                                {loading && filteredThreads.length === 0 ? (
+                                    <div className="p-3"><SkeletonRow count={6} variant="list" /></div>
+                                ) : filteredThreads.length === 0 ? (
+                                    <EmptyState icon="users" compact
+                                        title={threads.length === 0 ? 'スレッドがまだありません' : '該当するスレッドがありません'}
+                                        message={threads.length === 0 ? 'お客様から LINE でメッセージが届くと、ここに一覧表示されます' : '検索条件を変えてください'} />
+                                ) : (
+                                    <div className="overflow-y-auto" style={{ maxHeight: '70vh' }}>
+                                        {filteredThreads.map(t => {
+                                            const profile = profiles[t.userId] || {};
+                                            const name = _lineDisplayName(profile, t.userId);
+                                            const isActive = activeThread && activeThread.userId === t.userId;
+                                            return (
+                                                <button key={t.userId}
+                                                        onClick={() => openThread(t)}
+                                                        className={`lc-thread-item ${isActive ? 'active' : ''}`}>
+                                                    {profile.pictureUrl
+                                                        ? <ImageWithFallback src={profile.pictureUrl} alt={name}
+                                                                             className="lc-avatar" />
+                                                        : <span className="lc-avatar">{getInitial(name)}</span>}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-baseline gap-2">
+                                                            <div className="text-sm font-bold text-slate-800 truncate">{name}</div>
+                                                            <div className="ml-auto text-[10px] text-slate-400 flex-shrink-0">
+                                                                {_lineFmtTime(t.lastMessageAt)}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-[11px] text-slate-500 truncate">
+                                                            {t.lastMessageText || '(メッセージなし)'}
+                                                        </div>
+                                                    </div>
+                                                    {t.unreadCount > 0 && (
+                                                        <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold text-white"
+                                                              style={{ background: '#f97316' }}>
+                                                            {t.unreadCount > 99 ? '99+' : t.unreadCount}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 会話ペイン */}
+                        {showChat && (
+                            activeThread ? (
+                                <div className="lc-chat-pane">
+                                    <div className="lc-chat-header">
+                                        {isMobile && (
+                                            <button onClick={() => setActiveThread(null)}
+                                                    className="p-1 -ml-1 rounded-lg hover:bg-slate-100">
+                                                <Icon name="chevron-left" size={18} className="text-slate-500" />
+                                            </button>
+                                        )}
+                                        {(() => {
+                                            const profile = profiles[activeThread.userId] || {};
+                                            const name = _lineDisplayName(profile, activeThread.userId);
+                                            return (
+                                                <>
+                                                    {profile.pictureUrl
+                                                        ? <ImageWithFallback src={profile.pictureUrl} alt={name}
+                                                                             className="lc-avatar" />
+                                                        : <span className="lc-avatar">{getInitial(name)}</span>}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-bold text-slate-800 truncate">{name}</div>
+                                                        {profile.statusMessage && (
+                                                            <div className="text-[11px] text-slate-400 truncate">{profile.statusMessage}</div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
+                                        <Button variant="ghost" size="sm"
+                                                leftIcon={<Icon name="refresh-cw" size={12} />}
+                                                onClick={() => fetchMessages(activeThread.userId, storeId)}>
+                                            最新
+                                        </Button>
+                                    </div>
+                                    <div className="lc-chat-body" ref={bodyRef}>
+                                        {messages.length === 0 ? (
+                                            <div className="m-auto">
+                                                <EmptyState icon="message-square" compact
+                                                    title="メッセージがありません"
+                                                    message="送信すると会話履歴がここに表示されます" />
+                                            </div>
+                                        ) : (
+                                            messages.map((m, i) => {
+                                                const isSent = m.direction === 'sent';
+                                                const text   = m.messageText
+                                                    || (m.messageType === 'image' ? '[画像]' :
+                                                        m.messageType === 'sticker' ? '[スタンプ]' :
+                                                        m.messageType === 'video' ? '[動画]' :
+                                                        m.messageType === 'audio' ? '[音声]' :
+                                                        m.messageType === 'file' ? '[ファイル]' :
+                                                        m.messageType === 'follow' ? '友だち追加' :
+                                                        m.messageType === 'unfollow' ? 'ブロック' :
+                                                        '(メッセージ)');
+                                                return (
+                                                    <div key={m.messageId || i}
+                                                         className={`lc-msg ${isSent ? 'sent' : 'received'} ${m._failed ? 'failed' : ''}`}>
+                                                        <div>{text}</div>
+                                                        <span className="lc-time">
+                                                            {_lineFmtTime(m.timestamp)}
+                                                            {m._pending && ' ・ 送信中'}
+                                                            {m._failed  && ' ・ 失敗'}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                    <div className="lc-composer">
+                                        <textarea value={draft}
+                                                  onChange={(e) => setDraft(e.target.value)}
+                                                  onKeyDown={(e) => {
+                                                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                                          e.preventDefault(); handleSend();
+                                                      }
+                                                  }}
+                                                  placeholder="メッセージを入力（Cmd/Ctrl + Enter で送信）" />
+                                        <Button variant="primary" size="md"
+                                                loading={sending}
+                                                disabled={!draft.trim()}
+                                                onClick={handleSend}
+                                                leftIcon={!sending && <Icon name="send" size={14} />}>
+                                            送信
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="hidden lg:flex flex-col items-center justify-center text-slate-400 p-12 text-center">
+                                    <Icon name="message-circle" size={36} className="mb-3 text-slate-300" />
+                                    <p className="text-sm font-bold text-slate-500">スレッドを選択してください</p>
+                                    <p className="text-[11px] text-slate-400 mt-1">左の一覧から会話を開きます</p>
+                                </div>
+                            )
+                        )}
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 text-center mt-3">
+                        ※ 30 秒ごとに自動更新されます。送信は GAS 経由で LINE Messaging API に push されます。
+                    </p>
                 </div>
             );
         };
@@ -14365,6 +14916,8 @@
             const counselingHook = useCounselingData();
             // 勤怠管理 (GAS の attendance テーブルにブリッジ)
             const attendanceHook = useAttendance();
+            // LINE チャット (GAS の lineConfig / lineThreads / lineMessages にブリッジ)
+            const lineChatHook = useLineChat();
 
             // ダークモード切り替え
             useEffect(() => {
@@ -14558,8 +15111,7 @@
                     case 'posture':
                         return <PostureAnalysisView />;
                     case 'line':
-                        return <ComingSoon title="LINEチャット" icon="message-circle"
-                            description="お客様とのLINE会話・テンプレ・自動応答・配信を一括管理する画面を準備中です。" />;
+                        return <LineChatView lineChatHook={lineChatHook} />;
                     case 'attendance':
                         return <AttendanceView attendanceHook={attendanceHook} currentAccess={currentAccess} />;
                     case 'marketing':
