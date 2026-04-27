@@ -2171,6 +2171,196 @@
             }
         };
 
+        // ============================================================
+        // GPS ヘルパー
+        // ============================================================
+        // 出退勤の打刻時に「店舗近くにいるか?」を粗く判定する。
+        // ハマースタインの公式（haversine）で 2 点間の距離をメートル
+        // 単位で出す。誤差は数 m 以内で十分（数百 m の許容半径での
+        // 在勤判定が目的）。
+        // ============================================================
+        const getCurrentPosition = (options = {}) => new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('この端末は GPS に対応していません'));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    timestamp: pos.timestamp,
+                }),
+                (err) => reject(new Error(
+                    err.code === 1 ? '位置情報の許可が必要です' :
+                    err.code === 2 ? '位置情報を取得できませんでした' :
+                    err.code === 3 ? '位置情報取得がタイムアウトしました' :
+                    '位置情報エラー'
+                )),
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0, ...options }
+            );
+        });
+
+        // 2 点間の距離（メートル）。R = 地球半径 6371km。
+        const distanceMeters = (lat1, lng1, lat2, lng2) => {
+            const toRad = (d) => d * Math.PI / 180;
+            const R = 6371000;
+            const dLat = toRad(lat2 - lat1);
+            const dLng = toRad(lng2 - lng1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLng / 2) ** 2;
+            return Math.round(R * 2 * Math.asin(Math.sqrt(a)));
+        };
+
+        // ============================================================
+        // useAttendance hook
+        // ============================================================
+        // 勤怠データは GAS の `attendance` テーブルに保存する想定。
+        // GAS 側エンドポイントが未実装でも UI は壊れず、空履歴と
+        // 「サーバ未設定」を案内する。打刻自体はローカル sessionStorage
+        // にも保存して直近 1 件はキャッシュから復元できる。
+        // ============================================================
+        const _ATT_LOCAL = 'sise_attendance_today_v1';
+        const useAttendance = () => {
+            const [records, setRecords] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [saving, setSaving]   = useState(false);
+            const [todayRecord, setTodayRecord] = useState(() => {
+                try { return JSON.parse(sessionStorage.getItem(_ATT_LOCAL) || 'null'); }
+                catch (_) { return null; }
+            });
+            const [error, setError] = useState(null);
+
+            const persistToday = useCallback((rec) => {
+                if (rec) {
+                    try { sessionStorage.setItem(_ATT_LOCAL, JSON.stringify(rec)); }
+                    catch (_) {}
+                } else {
+                    try { sessionStorage.removeItem(_ATT_LOCAL); }
+                    catch (_) {}
+                }
+            }, []);
+
+            // 月単位で履歴を取得。staffId は通常 currentAccess.staffId か空。
+            const fetchRecords = useCallback(async ({ month, store, staffId } = {}) => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const params = {};
+                    if (month)   params.month   = month;
+                    if (store)   params.store   = store;
+                    if (staffId) params.staffId = staffId;
+                    const data = await dbGet('attendance', params);
+                    if (!data || data.error) {
+                        // GAS 未実装でも画面は壊さない
+                        setRecords([]);
+                        if (data && data.error) setError(data.error);
+                    } else {
+                        setRecords(Array.isArray(data.records) ? data.records : []);
+                    }
+                } catch (e) {
+                    setError(e.message || 'fetch error');
+                    setRecords([]);
+                } finally {
+                    setLoading(false);
+                }
+            }, []);
+
+            // 出勤打刻
+            const clockIn = useCallback(async ({ staffId, staffName, storeId, lat, lng, method }) => {
+                if (!staffId || !storeId) {
+                    showToast('スタッフと店舗を指定してください', 'error');
+                    return null;
+                }
+                setSaving(true);
+                try {
+                    const body = {
+                        action: 'clockIn',
+                        staffId, staffName, storeId,
+                        lat, lng,
+                        method: method || 'gps',
+                        date: todayLocalYMD(),
+                        time: nowLocalHM(),
+                    };
+                    const data = await dbPost('attendance', body);
+                    if (!data || data.error || !data.success) {
+                        const msg = (data && data.error) || 'サーバが応答しませんでした';
+                        showToast('出勤記録に失敗: ' + msg, 'error');
+                        hapticError();
+                        return null;
+                    }
+                    const rec = data.record || {
+                        id: 'local_' + Date.now(),
+                        staffId, staffName, storeId,
+                        date: body.date, clockIn: body.time,
+                        clockOut: null, method: body.method,
+                    };
+                    setTodayRecord(rec);
+                    persistToday(rec);
+                    hapticSuccess();
+                    showToast('出勤を記録しました', 'success', 1800);
+                    return rec;
+                } finally {
+                    setSaving(false);
+                }
+            }, [persistToday]);
+
+            // 退勤打刻
+            const clockOut = useCallback(async ({ recordId, lat, lng } = {}) => {
+                const rec = todayRecord;
+                const id  = recordId || (rec && rec.id);
+                if (!id) {
+                    showToast('出勤記録が見つかりません', 'error');
+                    return null;
+                }
+                setSaving(true);
+                try {
+                    const data = await dbPost('attendance', {
+                        action: 'clockOut',
+                        recordId: id, lat, lng,
+                        time: nowLocalHM(),
+                    });
+                    if (!data || data.error || !data.success) {
+                        const msg = (data && data.error) || 'サーバが応答しませんでした';
+                        showToast('退勤記録に失敗: ' + msg, 'error');
+                        hapticError();
+                        return null;
+                    }
+                    const updated = data.record || {
+                        ...(rec || {}), clockOut: nowLocalHM(),
+                    };
+                    setTodayRecord(updated);
+                    persistToday(updated);
+                    hapticSuccess();
+                    showToast('退勤を記録しました', 'success', 1800);
+                    return updated;
+                } finally {
+                    setSaving(false);
+                }
+            }, [todayRecord, persistToday]);
+
+            // 今日の自分のレコードがサーバ側にあれば取り直す
+            const checkTodayStatus = useCallback(async ({ staffId } = {}) => {
+                if (!staffId) return;
+                try {
+                    const data = await dbGet('attendance', {
+                        staffId, date: todayLocalYMD(),
+                    });
+                    if (data && Array.isArray(data.records)) {
+                        const open = data.records.find(r => !r.clockOut) || data.records[0] || null;
+                        setTodayRecord(open);
+                        persistToday(open);
+                    }
+                } catch (_) {}
+            }, [persistToday]);
+
+            return {
+                records, loading, saving, todayRecord, error,
+                fetchRecords, clockIn, clockOut, checkTodayStatus,
+            };
+        };
+
         const fetchStaffFromGas = async (includeInactive = true) => {
             const gasUrl = localStorage.getItem('sise_unified_gas_url');
             if (!gasUrl) return null;
@@ -6572,6 +6762,320 @@
                             ダウンロードされます。
                         </p>
                     </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // AttendanceView (勤怠管理)
+        // ============================================================
+        // スタッフが店舗で出勤・退勤を打刻する画面。
+        // 3 つのタブ:
+        //   打刻      — 大きな出勤/退勤ボタン + GPS 検証
+        //   履歴      — 月別の打刻一覧
+        //   店舗設定  — 店舗の緯度経度を登録 (GPS 検証用、admin のみ)
+        //
+        // GAS の `attendance` / `stores`(coords field) エンドポイントが
+        // 整っていない環境でも、UI が壊れずローカル sessionStorage で
+        // その場での出退勤だけは記録できるようにする。
+        // ============================================================
+        const AttendanceView = ({ attendanceHook, currentAccess: _ca }) => {
+            const [activeTab, setActiveTab] = useState('clock');
+            const [gpsState, setGpsState] = useState({ status: 'idle', position: null, distance: null, store: null, error: null });
+            const [selectedStoreId, setSelectedStoreId] = useState(() => {
+                if (_ca && _ca.storeIds && _ca.storeIds.length === 1) return _ca.storeIds[0];
+                return '';
+            });
+            const [historyMonth, setHistoryMonth] = useState(() => thisMonthLocalYM());
+
+            const stores = serverStores.filter(s => s.status !== 'inactive')
+                .filter(s => !_ca || (_ca.storeIds || []).includes(s.id));
+            const staffId = _ca ? _ca.staffId : '';
+            const staffName = _ca ? _ca.name : '';
+
+            // 初回: 今日のステータス確認 + 履歴取得
+            useEffect(() => {
+                if (staffId) attendanceHook.checkTodayStatus({ staffId });
+                attendanceHook.fetchRecords({
+                    month: historyMonth,
+                    staffId: staffId || undefined,
+                    store: selectedStoreId || undefined,
+                });
+            }, [staffId, historyMonth, selectedStoreId]);
+
+            // GPS 取得 + 最寄り店舗との距離算出
+            const checkGps = useCallback(async () => {
+                setGpsState({ status: 'checking', position: null, distance: null, store: null, error: null });
+                try {
+                    const pos = await getCurrentPosition();
+                    // 距離の近い順に並べ、最寄り店舗を採用
+                    const candidates = stores
+                        .filter(s => typeof s.lat === 'number' && typeof s.lng === 'number')
+                        .map(s => ({
+                            store: s,
+                            dist: distanceMeters(pos.lat, pos.lng, s.lat, s.lng),
+                        }))
+                        .sort((a, b) => a.dist - b.dist);
+                    const nearest = candidates[0] || null;
+                    setGpsState({
+                        status: 'ok',
+                        position: pos,
+                        distance: nearest ? nearest.dist : null,
+                        store: nearest ? nearest.store : null,
+                        error: null,
+                    });
+                    if (nearest && !selectedStoreId) setSelectedStoreId(nearest.store.id);
+                } catch (e) {
+                    setGpsState({ status: 'error', position: null, distance: null, store: null, error: e.message });
+                }
+            }, [stores, selectedStoreId]);
+
+            // 出勤打刻
+            const handleClockIn = useCallback(async () => {
+                const storeId = selectedStoreId || (gpsState.store && gpsState.store.id);
+                if (!storeId) { showToast('店舗を選択してください', 'error'); return; }
+                if (_ca && !(_ca.storeIds || []).includes(storeId)) {
+                    showToast('この店舗での打刻権限がありません', 'error');
+                    return;
+                }
+                await attendanceHook.clockIn({
+                    staffId, staffName, storeId,
+                    lat: gpsState.position && gpsState.position.lat,
+                    lng: gpsState.position && gpsState.position.lng,
+                    method: gpsState.position ? 'gps' : 'manual',
+                });
+                attendanceHook.fetchRecords({ month: historyMonth, staffId, store: selectedStoreId });
+            }, [selectedStoreId, gpsState, staffId, staffName, _ca, historyMonth]);
+
+            // 退勤打刻
+            const handleClockOut = useCallback(async () => {
+                const rec = attendanceHook.todayRecord;
+                if (!rec || !rec.id) { showToast('出勤記録がありません', 'error'); return; }
+                let lat, lng;
+                if (gpsState.position) { lat = gpsState.position.lat; lng = gpsState.position.lng; }
+                await attendanceHook.clockOut({ recordId: rec.id, lat, lng });
+                attendanceHook.fetchRecords({ month: historyMonth, staffId, store: selectedStoreId });
+            }, [gpsState.position, historyMonth, staffId, selectedStoreId]);
+
+            const today = attendanceHook.todayRecord;
+            const isClockedIn = today && today.clockIn && !today.clockOut;
+            const isDone      = today && today.clockOut;
+
+            const RADIUS_OK = 300; // 300m 以内なら "範囲内"
+            const gpsBadge = (() => {
+                if (gpsState.status === 'idle')     return null;
+                if (gpsState.status === 'checking') return { color: '#64748b', label: 'GPS 取得中…' };
+                if (gpsState.status === 'error')    return { color: '#dc2626', label: gpsState.error };
+                if (gpsState.distance == null)      return { color: '#94a3b8', label: '店舗の座標が未登録' };
+                const ok = gpsState.distance <= RADIUS_OK;
+                return {
+                    color: ok ? '#16a34a' : '#f59e0b',
+                    label: `${gpsState.store?.name || '最寄'}まで ${gpsState.distance}m ${ok ? '(範囲内)' : '(範囲外)'}`,
+                };
+            })();
+
+            return (
+                <div className="max-w-2xl mx-auto p-3">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Icon name="clock" size={18} className="text-sise-500" />
+                        <h2 className="text-base font-extrabold text-slate-800">勤怠管理</h2>
+                        {staffName && (
+                            <span className="ml-auto text-[11px] font-bold text-slate-500">
+                                {staffName}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* タブ */}
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl mb-4">
+                        {[
+                            { k: 'clock',    l: '打刻',     icon: 'log-in' },
+                            { k: 'history',  l: '履歴',     icon: 'calendar' },
+                        ].map(t => (
+                            <button key={t.k} onClick={() => setActiveTab(t.k)}
+                                    className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-semibold transition"
+                                    style={{
+                                        background: activeTab === t.k ? '#fff' : 'transparent',
+                                        color:      activeTab === t.k ? '#9a3412' : '#64748b',
+                                        boxShadow:  activeTab === t.k ? '0 2px 6px rgba(0,0,0,.05)' : 'none',
+                                    }}>
+                                <Icon name={t.icon} size={13} />
+                                {t.l}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* 打刻タブ */}
+                    {activeTab === 'clock' && (
+                        <div className="space-y-3">
+                            {/* 今日のステータスカード */}
+                            <div className="rounded-2xl p-4"
+                                 style={{
+                                     background: isClockedIn ? 'linear-gradient(135deg,#fff7ed,#ffedd5)' :
+                                                 isDone      ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' :
+                                                               'linear-gradient(135deg,#f8fafc,#f1f5f9)',
+                                     border: '1px solid ' + (isClockedIn ? '#fed7aa' : isDone ? '#bbf7d0' : '#e2e8f0'),
+                                 }}>
+                                <div className="text-[10px] font-bold tracking-widest"
+                                     style={{ color: isClockedIn ? '#9a3412' : isDone ? '#166534' : '#64748b' }}>
+                                    {todayLocalYMD()} の打刻状況
+                                </div>
+                                <div className="mt-2 flex items-center gap-3">
+                                    <div className="text-2xl font-extrabold"
+                                         style={{ color: isClockedIn ? '#9a3412' : isDone ? '#166534' : '#475569' }}>
+                                        {isClockedIn ? '勤務中' : isDone ? '勤務完了' : '未出勤'}
+                                    </div>
+                                    {today && (
+                                        <div className="text-xs text-slate-500 ml-auto">
+                                            {today.clockIn  && <div>出勤 {today.clockIn}</div>}
+                                            {today.clockOut && <div>退勤 {today.clockOut}</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 店舗選択 */}
+                            <div className="tr-section">
+                                <div className="tr-section-title">
+                                    <Icon name="map-pin" size={14} className="text-sise-500" />
+                                    打刻店舗
+                                </div>
+                                {stores.length === 0 ? (
+                                    <EmptyState icon="map-pin" title="アクセス可能な店舗がありません"
+                                        message="管理者に店舗権限を付与してもらってください" compact />
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {stores.map(s => (
+                                            <button key={s.id}
+                                                    onClick={() => setSelectedStoreId(s.id)}
+                                                    className="tr-stretch-chip"
+                                                    style={selectedStoreId === s.id
+                                                        ? { borderColor:'#f97316', background:'#fff7ed', color:'#9a3412' }
+                                                        : undefined}>
+                                                <Icon name={selectedStoreId === s.id ? 'check-circle' : 'circle'} size={13} />
+                                                {s.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* GPS 検証 */}
+                            <div className="tr-section">
+                                <div className="tr-section-title">
+                                    <Icon name="navigation" size={14} className="text-sise-500" />
+                                    GPS 確認 (任意)
+                                </div>
+                                <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+                                    店舗の登録座標と現在地を比較して「在勤と思われる距離か」を確認します。GPS の取得は任意で、
+                                    取得できない場合は手動で打刻できます。
+                                </p>
+                                <Button variant="secondary" size="sm"
+                                        leftIcon={<Icon name="locate" size={14} />}
+                                        loading={gpsState.status === 'checking'}
+                                        onClick={checkGps}>
+                                    現在地を取得
+                                </Button>
+                                {gpsBadge && (
+                                    <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold"
+                                         style={{ background: gpsBadge.color + '12', color: gpsBadge.color, border: '1px solid ' + gpsBadge.color + '30' }}>
+                                        <Icon name="map-pin" size={12} />
+                                        {gpsBadge.label}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 打刻アクション */}
+                            <div className="flex items-center gap-2">
+                                {!isClockedIn && (
+                                    <Button variant="primary" size="lg" className="flex-1"
+                                            loading={attendanceHook.saving}
+                                            disabled={!selectedStoreId || isDone}
+                                            leftIcon={<Icon name="log-in" size={16} />}
+                                            onClick={handleClockIn}>
+                                        {isDone ? '本日の勤務は完了しています' : '出勤'}
+                                    </Button>
+                                )}
+                                {isClockedIn && (
+                                    <Button variant="primary" size="lg" className="flex-1"
+                                            loading={attendanceHook.saving}
+                                            leftIcon={<Icon name="log-out" size={16} />}
+                                            onClick={handleClockOut}>
+                                        退勤
+                                    </Button>
+                                )}
+                            </div>
+
+                            {!staffId && (
+                                <div className="rounded-xl p-3 bg-amber-50 border border-amber-200 text-xs text-amber-700 flex gap-2 items-start">
+                                    <Icon name="alert-triangle" size={14} className="mt-0.5" />
+                                    <span>
+                                        スタッフ URL でアクセスしていないため、打刻はテスト的に保存されます。
+                                        本番運用ではスタッフ管理から発行された URL でログインしてください。
+                                    </span>
+                                </div>
+                            )}
+                            {attendanceHook.error && (
+                                <div className="rounded-xl p-3 bg-red-50 border border-red-200 text-xs text-red-700 flex gap-2 items-start">
+                                    <Icon name="alert-circle" size={14} className="mt-0.5" />
+                                    <span>サーバ未応答: {attendanceHook.error}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 履歴タブ */}
+                    {activeTab === 'history' && (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="sm"
+                                        leftIcon={<Icon name="chevron-left" size={14} />}
+                                        onClick={() => setHistoryMonth(shiftMonthLocalYM(historyMonth, -1))}>
+                                    前の月
+                                </Button>
+                                <span className="font-extrabold text-slate-700 tabular-nums">{historyMonth}</span>
+                                <Button variant="ghost" size="sm"
+                                        rightIcon={<Icon name="chevron-right" size={14} />}
+                                        onClick={() => setHistoryMonth(shiftMonthLocalYM(historyMonth, 1))}
+                                        disabled={historyMonth >= thisMonthLocalYM()}>
+                                    次の月
+                                </Button>
+                                <Button variant="secondary" size="sm" className="ml-auto"
+                                        loading={attendanceHook.loading}
+                                        leftIcon={<Icon name="refresh-cw" size={13} />}
+                                        onClick={() => attendanceHook.fetchRecords({
+                                            month: historyMonth, staffId, store: selectedStoreId,
+                                        })}>
+                                    更新
+                                </Button>
+                            </div>
+
+                            {attendanceHook.loading ? (
+                                <SkeletonRow count={5} variant="list" />
+                            ) : attendanceHook.records.length === 0 ? (
+                                <EmptyState icon="calendar" title="この月の記録はまだありません"
+                                    message="出勤打刻すると、ここに履歴が表示されます" compact />
+                            ) : (
+                                <div className="flex flex-col gap-1.5">
+                                    {attendanceHook.records.map(r => (
+                                        <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
+                                            <div className="text-xs font-bold text-slate-500 tabular-nums w-20">{r.date}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-bold text-slate-700">
+                                                    {r.staffName || '—'}
+                                                </div>
+                                                <div className="text-[11px] text-slate-400">{(stores.find(s => s.id === r.storeId) || {}).name || r.storeId}</div>
+                                            </div>
+                                            <div className="text-xs tabular-nums">
+                                                <div className="text-sise-700 font-bold">出 {r.clockIn || '—'}</div>
+                                                <div className="text-slate-500">退 {r.clockOut || '—'}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -13859,6 +14363,8 @@
             const marketingHook = useMarketingData();
             // カウンセリングデータ管理
             const counselingHook = useCounselingData();
+            // 勤怠管理 (GAS の attendance テーブルにブリッジ)
+            const attendanceHook = useAttendance();
 
             // ダークモード切り替え
             useEffect(() => {
@@ -14055,8 +14561,7 @@
                         return <ComingSoon title="LINEチャット" icon="message-circle"
                             description="お客様とのLINE会話・テンプレ・自動応答・配信を一括管理する画面を準備中です。" />;
                     case 'attendance':
-                        return <ComingSoon title="勤怠管理" icon="clock"
-                            description="GPS / QRコードで出退勤を打刻し、月次勤怠を集計する画面を準備中です。" />;
+                        return <AttendanceView attendanceHook={attendanceHook} currentAccess={currentAccess} />;
                     case 'marketing':
                         // マーケティングは本部のみアクセス可
                         if (isStaffMode && (!currentAccess || currentAccess.role !== 'headquarter')) {
