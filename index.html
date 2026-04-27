@@ -897,6 +897,137 @@
             .modal-backdrop, .modal-panel { animation-duration: 150ms !important; }
         }
 
+        /* =========================================================
+           来店フロー (FlowNavigationView)
+           5 ステップの線形ウィザード。上部に進捗インジケータ、本体は
+           glass-card と同じ色味、下部に固定アクションバー。タッチ操作
+           しやすいよう各タップ領域は 44px 以上を維持する。
+           ========================================================= */
+        .flow-container {
+            min-height: 100dvh;
+            background: linear-gradient(135deg, #fffaf5 0%, #fff7ed 60%, #ffedd5 100%);
+            -webkit-overflow-scrolling: touch;
+        }
+        .dark .flow-container {
+            background: linear-gradient(135deg, #1a0e04 0%, #1f1208 100%);
+        }
+        .flow-progress-bar {
+            display: flex; align-items: center; gap: 0;
+            padding: 14px 16px 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .flow-progress-bar::-webkit-scrollbar { display: none; }
+        .flow-step-dot {
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            min-width: 56px;
+            cursor: pointer;
+            background: none; border: none; padding: 4px 6px;
+            transition: opacity 0.2s ease;
+        }
+        .flow-step-dot:not(.done):not(.active) { opacity: 0.55; }
+        .flow-step-circle {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            border: 2.5px solid #e2e8f0;
+            background: #fff;
+            color: #94a3b8;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 800;
+            transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+        }
+        .flow-step-dot.active .flow-step-circle {
+            border-color: #f97316; background: #f97316; color: #fff;
+            box-shadow: 0 0 0 4px rgba(249,115,22,0.18);
+        }
+        .flow-step-dot.done .flow-step-circle {
+            border-color: #fb923c; background: #fb923c; color: #fff;
+        }
+        .flow-step-dot.skipped .flow-step-circle {
+            border-color: #cbd5e1; background: #f1f5f9; color: #94a3b8;
+        }
+        .flow-step-label {
+            font-size: 10px; font-weight: 700; color: #94a3b8;
+            white-space: nowrap; max-width: 64px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .flow-step-dot.active .flow-step-label { color: #ea580c; }
+        .flow-step-dot.done .flow-step-label { color: #fb923c; }
+        .flow-step-connector {
+            width: 24px; height: 2px;
+            background: #e2e8f0;
+            margin-top: -16px;
+            flex-shrink: 0;
+            transition: background 0.3s ease;
+        }
+        .flow-step-connector.filled { background: #fb923c; }
+
+        .flow-card {
+            background: #fff;
+            border: 1px solid rgba(249,115,22,0.08);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 20px -8px rgba(249,115,22,0.08);
+            margin: 0 12px 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        .dark .flow-card {
+            background: #1f1208;
+            border-color: rgba(249,115,22,0.18);
+        }
+        .flow-action-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(249,115,22,0.08);
+            padding: 12px 16px;
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            display: flex; gap: 10px;
+        }
+        .dark .flow-action-bar {
+            background: rgba(31,18,8,0.95);
+            border-top-color: rgba(249,115,22,0.15);
+        }
+        @media (min-width: 768px) {
+            .flow-card { max-width: 640px; margin: 0 auto 16px; padding: 28px; }
+            .flow-action-bar {
+                max-width: 640px; left: 50%;
+                transform: translateX(-50%);
+                border-radius: 20px 20px 0 0;
+                border: 1px solid rgba(249,115,22,0.08); border-bottom: none;
+            }
+        }
+
+        /* =========================================================
+           クイック検索モーダル (QuickSearchModal)
+           Cmd+K / Ctrl+K で起動するスポットライト風の検索 UI。
+           ========================================================= */
+        .qs-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex; align-items: flex-start; justify-content: center;
+            padding-top: 10vh;
+            animation: fadeIn 0.15s ease forwards;
+        }
+        .qs-panel {
+            width: 100%; max-width: 560px; margin: 0 16px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.18);
+            overflow: hidden;
+            animation: scaleIn 0.18s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .dark .qs-panel {
+            background: #1f1208;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+
         /* Gradient button */
         .btn-gradient {
             background: linear-gradient(135deg, #f97316, #ea580c);
@@ -4346,7 +4477,864 @@
             );
         };
 
-        const DashboardView = ({ memberData, reportData, selectedStore, setSelectedStore, allowedStoreNames }) => {
+        // ============================================================
+        // FlowNavigationView (来店フロー)
+        // ============================================================
+        // お客様の来店から会計までを 5 ステップでガイドする。
+        // 受付 → カウンセリング → 施術 → 会計 → 完了
+        //
+        // 設計上のポイント:
+        // - sessionStorage に下書きを保存し、誤タップで戻った時にも
+        //   復元できる。完了 or 明示的に「終了する」を押した時のみ消去。
+        // - 既存の useSquareData / useManualMembers / useCashbook / 出納
+        //   メニューマスタ等を直接利用するので、完了時にそのまま会計を
+        //   出納帳エントリとして登録できる。
+        // - 共通コンポーネント (Button / FloatingInput / EmptyState /
+        //   ConfirmDialog / SkeletonRow) を活用して見た目を統一する。
+        // ============================================================
+        const FLOW_STEPS = [
+            { id: 'checkin',     label: '受付',          icon: 'log-in',          desc: 'お客様の選択 / 新規登録' },
+            { id: 'counseling',  label: 'カウンセリング', icon: 'heart-handshake', desc: 'お悩みヒアリング' },
+            { id: 'treatment',   label: '施術',          icon: 'activity',        desc: 'メニュー選択 + メモ記録' },
+            { id: 'checkout',    label: '会計',          icon: 'wallet',          desc: '出納帳に売上計上' },
+            { id: 'complete',    label: '完了',          icon: 'check-circle',    desc: '次回ご案内' },
+        ];
+
+        const FLOW_STORAGE_KEY = 'sise_flow_state_v1';
+        const _flowLoad = () => {
+            try { return JSON.parse(sessionStorage.getItem(FLOW_STORAGE_KEY) || 'null'); }
+            catch (_) { return null; }
+        };
+        const _flowSave = (s) => { try { sessionStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(s)); } catch (_) {} };
+        const _flowClear = () => { try { sessionStorage.removeItem(FLOW_STORAGE_KEY); } catch (_) {} };
+
+        const FlowNavigationView = ({ onClose, memberData, manualMembersHook, cashbookHook, activeStoreId }) => {
+            const persisted = useMemo(() => _flowLoad(), []);
+            const [currentStep, setCurrentStep] = useState(() => persisted?.currentStep || 0);
+            const [customer, setCustomer]       = useState(() => persisted?.customer || null);
+            const [stepStatus, setStepStatus]   = useState(() => persisted?.stepStatus || {});
+            const [counselingNote, setCounselingNote] = useState(() => persisted?.counselingNote || '');
+            const [treatmentMenus, setTreatmentMenus] = useState(() => persisted?.treatmentMenus || {});
+            const [treatmentNote, setTreatmentNote]   = useState(() => persisted?.treatmentNote || '');
+            const [checkoutAmount, setCheckoutAmount] = useState(() => persisted?.checkoutAmount || '');
+            const [checkoutMethod, setCheckoutMethod] = useState(() => persisted?.checkoutMethod || 'CASH');
+            const [searchQuery, setSearchQuery]   = useState('');
+            const [wasRestored, setWasRestored]   = useState(() =>
+                !!persisted && (persisted.currentStep > 0 || !!persisted.customer));
+            const [submitting, setSubmitting]     = useState(false);
+            const debouncedSearch = useDebounce(searchQuery, 200);
+
+            // 自動永続化
+            useEffect(() => {
+                _flowSave({
+                    currentStep, customer, stepStatus,
+                    counselingNote, treatmentMenus, treatmentNote,
+                    checkoutAmount, checkoutMethod,
+                    _savedAt: Date.now(),
+                });
+            }, [currentStep, customer, stepStatus, counselingNote, treatmentMenus,
+                treatmentNote, checkoutAmount, checkoutMethod]);
+
+            // 顧客候補: Square + 手動会員（ACTIVE のみ）
+            const allCustomers = useMemo(() => {
+                const out = [];
+                (memberData?.members || []).forEach(m => {
+                    if (m.status === 'CANCELED') return;
+                    out.push({
+                        id: m.id, name: m.name, phone: m.phone || '',
+                        planName: m.planName || '', monthlyPrice: m.monthlyPrice || 0,
+                        source: 'Square',
+                    });
+                });
+                (manualMembersHook?.manualMembers || []).forEach(m => {
+                    if (m.status !== 'ACTIVE') return;
+                    out.push({
+                        id: m.id, name: m.name, phone: m.phone || '',
+                        planName: m.planName || '', monthlyPrice: m.monthlyPrice || 0,
+                        source: '手動',
+                    });
+                });
+                return out;
+            }, [memberData?.members, manualMembersHook?.manualMembers]);
+
+            const filtered = useMemo(() => {
+                const list = allCustomers;
+                if (!debouncedSearch.trim()) return list.slice(0, 25);
+                const q = debouncedSearch.toLowerCase();
+                return list.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.phone || '').includes(q)
+                ).slice(0, 25);
+            }, [allCustomers, debouncedSearch]);
+
+            const goTo = useCallback((idx) => {
+                if (idx < 0 || idx >= FLOW_STEPS.length) return;
+                setCurrentStep(idx);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, []);
+            const markDone    = (id) => setStepStatus(p => ({ ...p, [id]: 'done' }));
+            const markSkipped = (id) => setStepStatus(p => ({ ...p, [id]: 'skipped' }));
+
+            const handleNext = () => { markDone(FLOW_STEPS[currentStep].id);    goTo(currentStep + 1); };
+            const handleSkip = () => { markSkipped(FLOW_STEPS[currentStep].id); goTo(currentStep + 1); };
+
+            const handleAbandon = async () => {
+                const ok = await confirmDialog({
+                    title: 'フローを終了',
+                    message: '途中で終了します。入力内容は破棄されます。よろしいですか?',
+                    confirmLabel: '終了する', variant: 'danger',
+                });
+                if (!ok) return;
+                _flowClear();
+                onClose();
+            };
+
+            const handleComplete = async () => {
+                if (submitting) return;
+                setSubmitting(true);
+                try {
+                    // 会計が入力されており、cashbookHook があれば自動的にエントリを作成
+                    const amt = parseInt(String(checkoutAmount).replace(/[^0-9-]/g, ''), 10);
+                    if (cashbookHook && amt > 0 && customer) {
+                        const today = todayLocalYMD();
+                        const menusList = Object.keys(treatmentMenus).filter(k => treatmentMenus[k]);
+                        const description = menusList.length > 0
+                            ? `${customer.name} - ${menusList.join('・')}`
+                            : `${customer.name} - 施術`;
+                        await cashbookHook.addEntry({
+                            date: today,
+                            type: 'income',
+                            category: '施術売上',
+                            description,
+                            amount: amt,
+                            customerName: customer.name,
+                            treatmentCount: 1,
+                            paymentMethod: checkoutMethod,
+                            cashType: checkoutMethod === 'CASH' ? 'register' : 'register',
+                            store: activeStoreId !== 'all' ? activeStoreId : '',
+                            notes: treatmentNote || '',
+                        });
+                    }
+                    _flowClear();
+                    showToast('来店フローを完了しました', 'success', 2500);
+                    hapticSuccess();
+                    onClose();
+                } catch (e) {
+                    console.error('[flow] complete error:', e);
+                    showToast('完了処理でエラーが発生しました', 'error');
+                } finally {
+                    setSubmitting(false);
+                }
+            };
+
+            // -------- ステップ別の本体描画 --------
+            const renderStep = () => {
+                const step = FLOW_STEPS[currentStep];
+                if (step.id === 'checkin') {
+                    if (customer) {
+                        // 顧客が選択されている場合は確認カード表示
+                        return (
+                            <div>
+                                <div className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                    <Icon name="user-check" size={16} className="text-sise-500" />
+                                    選択されたお客様
+                                </div>
+                                <div className="flex items-center gap-3 p-4 rounded-2xl border-2 border-sise-200 bg-sise-50/40">
+                                    <Avatar name={customer.name} size={48} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-base font-bold text-slate-800 truncate">{customer.name}</div>
+                                        <div className="text-xs text-slate-500 mt-0.5 truncate">
+                                            {customer.planName || '一般'}
+                                            {customer.phone && ` ・ ${customer.phone}`}
+                                        </div>
+                                        <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded mt-1 ${customer.source === 'Square' ? 'bg-sise-100 text-sise-700' : 'bg-blue-100 text-blue-700'}`}>
+                                            {customer.source}
+                                        </span>
+                                    </div>
+                                    <button onClick={() => setCustomer(null)}
+                                            className="p-2 rounded-lg hover:bg-white/60 text-slate-400">
+                                        <Icon name="x" size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    }
+                    return (
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <Icon name="search" size={16} className="text-sise-500" />
+                                お客様を選択
+                            </div>
+                            <FloatingInput
+                                label="名前 / 電話番号で検索"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                leftIcon={<Icon name="search" size={14} />}
+                            />
+                            <div className="mt-3 max-h-[50vh] overflow-y-auto">
+                                {filtered.length === 0 ? (
+                                    <EmptyState
+                                        icon="users"
+                                        title={searchQuery ? '該当する会員がいません' : 'まだ会員データがありません'}
+                                        message={searchQuery ? '名前を変えて検索するか、新規でフローを開始してください' : '会員管理タブから会員を登録するか、新規来店として進めてください'}
+                                        compact
+                                    />
+                                ) : (
+                                    <div className="flex flex-col gap-1.5">
+                                        {filtered.map(c => (
+                                            <button key={c.id + '_' + c.source}
+                                                    onClick={() => { setCustomer(c); hapticTap(); }}
+                                                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-sise-200 hover:bg-sise-50/30 text-left transition active:scale-[0.99]">
+                                                <Avatar name={c.name} size={36} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-bold text-slate-800 truncate">{c.name}</div>
+                                                    <div className="text-[11px] text-slate-400 truncate">
+                                                        {c.planName || '一般'}{c.phone && ` ・ ${c.phone}`}
+                                                    </div>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.source === 'Square' ? 'bg-sise-100 text-sise-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                    {c.source}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-3">
+                                <Button variant="secondary" className="w-full"
+                                        leftIcon={<Icon name="user-plus" size={14} />}
+                                        onClick={() => setCustomer({
+                                            id: 'new_' + Date.now(),
+                                            name: searchQuery.trim() || '新規のお客様',
+                                            phone: '', planName: '', monthlyPrice: 0,
+                                            source: '新規',
+                                        })}>
+                                    新規のお客様として進める
+                                </Button>
+                            </div>
+                        </div>
+                    );
+                }
+                if (step.id === 'counseling') {
+                    return (
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <Icon name="heart-handshake" size={16} className="text-sise-500" />
+                                カウンセリングメモ
+                            </div>
+                            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                                お悩みやヒアリング内容をメモしておくと、次回以降の参考になります。
+                            </p>
+                            <FloatingInput
+                                type="textarea" rows={6}
+                                label="ヒアリング内容"
+                                value={counselingNote}
+                                onChange={(e) => setCounselingNote(e.target.value)}
+                                helpText="例: 肩こりが酷い、デスクワーク中心、週1回希望 など"
+                            />
+                        </div>
+                    );
+                }
+                if (step.id === 'treatment') {
+                    const MENU_OPTIONS = ['骨盤矯正','姿勢矯正','小顔矯正','ほぐし','鍼灸','美容鍼'];
+                    return (
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <Icon name="activity" size={16} className="text-sise-500" />
+                                施術メニュー
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                {MENU_OPTIONS.map(m => {
+                                    const checked = !!treatmentMenus[m];
+                                    return (
+                                        <button key={m}
+                                                onClick={() => setTreatmentMenus(p => ({ ...p, [m]: !p[m] }))}
+                                                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition active:scale-[0.98]"
+                                                style={{
+                                                    border: `2px solid ${checked ? '#f97316' : '#e2e8f0'}`,
+                                                    background: checked ? '#fff7ed' : '#fff',
+                                                    color: checked ? '#9a3412' : '#64748b',
+                                                }}>
+                                            <Icon name={checked ? 'check-square' : 'square'} size={15} />
+                                            {m}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <FloatingInput
+                                type="textarea" rows={4}
+                                label="施術メモ"
+                                value={treatmentNote}
+                                onChange={(e) => setTreatmentNote(e.target.value)}
+                                helpText="気づき・お客様の反応・宿題ストレッチ等"
+                            />
+                        </div>
+                    );
+                }
+                if (step.id === 'checkout') {
+                    const PAY_METHODS = [
+                        { id: 'CASH', label: '現金',   icon: 'banknote' },
+                        { id: 'QR',   label: 'QR決済', icon: 'qr-code' },
+                        { id: 'CARD', label: 'カード', icon: 'credit-card' },
+                    ];
+                    return (
+                        <div>
+                            <div className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                <Icon name="wallet" size={16} className="text-sise-500" />
+                                会計
+                            </div>
+                            <FloatingInput
+                                label="金額（円）" type="number" inputMode="numeric"
+                                value={checkoutAmount}
+                                onChange={(e) => setCheckoutAmount(e.target.value)}
+                                rightIcon={<span className="text-sm font-bold text-slate-400">¥</span>}
+                            />
+                            <div className="mt-4">
+                                <div className="text-[11px] font-bold text-slate-500 mb-2 tracking-wider">決済方法</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {PAY_METHODS.map(p => {
+                                        const active = checkoutMethod === p.id;
+                                        return (
+                                            <button key={p.id}
+                                                    onClick={() => setCheckoutMethod(p.id)}
+                                                    className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-bold transition active:scale-[0.97]"
+                                                    style={{
+                                                        border: `2px solid ${active ? '#f97316' : '#e2e8f0'}`,
+                                                        background: active ? '#fff7ed' : '#fff',
+                                                        color: active ? '#9a3412' : '#64748b',
+                                                    }}>
+                                                <Icon name={p.icon} size={18} />
+                                                {p.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="mt-4 p-3 rounded-xl bg-sise-50 border border-sise-100 text-xs text-sise-700 flex items-start gap-2">
+                                <Icon name="info" size={13} className="mt-0.5 flex-shrink-0" />
+                                <span>「次へ進む」を押すと、完了画面のあと自動的に出納帳に売上を登録します。</span>
+                            </div>
+                        </div>
+                    );
+                }
+                if (step.id === 'complete') {
+                    const doneCount    = Object.values(stepStatus).filter(v => v === 'done').length;
+                    const skippedCount = Object.values(stepStatus).filter(v => v === 'skipped').length;
+                    const menuList     = Object.keys(treatmentMenus).filter(k => treatmentMenus[k]);
+                    return (
+                        <div>
+                            <div className="flex flex-col items-center text-center py-4">
+                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sise-400 to-sise-600 text-white flex items-center justify-center shadow-lg shadow-sise-500/30 mb-4">
+                                    <Icon name="check" size={32} />
+                                </div>
+                                <h3 className="text-xl font-extrabold text-slate-800">お疲れさまでした</h3>
+                                <p className="text-sm text-slate-500 mt-1">
+                                    {customer?.name || 'お客様'} の来店フローを終了します
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                    <span className="text-xs font-semibold text-slate-500">完了したステップ</span>
+                                    <span className="text-sm font-bold text-slate-700">
+                                        {doneCount}<span className="text-slate-400 font-normal text-xs"> 件</span>
+                                        {skippedCount > 0 && (
+                                            <span className="text-[10px] text-amber-600 ml-2">スキップ {skippedCount}</span>
+                                        )}
+                                    </span>
+                                </div>
+                                {menuList.length > 0 && (
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-500">施術メニュー</span>
+                                        <span className="text-sm font-bold text-slate-700">{menuList.join('・')}</span>
+                                    </div>
+                                )}
+                                {parseInt(checkoutAmount) > 0 && (
+                                    <div className="flex items-center justify-between p-3 rounded-xl bg-sise-50 border border-sise-200">
+                                        <span className="text-xs font-semibold text-sise-600">会計</span>
+                                        <span className="text-sm font-extrabold text-sise-700">
+                                            {formatCurrency(parseInt(checkoutAmount))}
+                                            <span className="text-[10px] font-normal text-sise-500 ml-2">{checkoutMethod}</span>
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 text-center mt-4 leading-relaxed">
+                                次回ご来店の予約をその場でご案内するか、<br />
+                                LINE/メールでフォローアップしてください。
+                            </p>
+                        </div>
+                    );
+                }
+                return null;
+            };
+
+            const canProceed = currentStep === 0 ? !!customer : true;
+            const isLast = currentStep === FLOW_STEPS.length - 1;
+            const step = FLOW_STEPS[currentStep];
+
+            return (
+                <div className="flow-container" style={{ paddingBottom: 96 }}>
+                    {/* ヘッダ */}
+                    <div className="sticky top-0 z-30 backdrop-blur"
+                         style={{ background: 'rgba(255,255,255,0.85)', borderBottom: '1px solid rgba(249,115,22,0.08)' }}>
+                        <div className="flex items-center gap-2 px-4 py-3">
+                            <button onClick={handleAbandon}
+                                    aria-label="フローを終了"
+                                    className="p-2 rounded-xl hover:bg-slate-100 active:scale-90 transition">
+                                <Icon name="x" size={18} className="text-slate-500" />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold text-sise-500 tracking-widest">FLOW</div>
+                                <div className="text-sm font-bold text-slate-800">来店フロー</div>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-400 tabular-nums">
+                                {currentStep + 1} / {FLOW_STEPS.length}
+                            </span>
+                        </div>
+                        {/* 進捗インジケータ */}
+                        <div className="flow-progress-bar">
+                            {FLOW_STEPS.map((s, idx) => {
+                                const status = stepStatus[s.id];
+                                const isActive = idx === currentStep;
+                                const isDone = status === 'done';
+                                const isSkipped = status === 'skipped';
+                                return (
+                                    <React.Fragment key={s.id}>
+                                        {idx > 0 && (
+                                            <span className={`flow-step-connector ${isDone || isSkipped || idx <= currentStep ? 'filled' : ''}`} />
+                                        )}
+                                        <button onClick={() => goTo(idx)}
+                                                className={`flow-step-dot ${isActive ? 'active' : ''} ${isDone ? 'done' : ''} ${isSkipped ? 'skipped' : ''}`}>
+                                            <span className="flow-step-circle">
+                                                {isDone ? <Icon name="check" size={14} /> :
+                                                 isSkipped ? <Icon name="minus" size={14} /> :
+                                                 (idx + 1)}
+                                            </span>
+                                            <span className="flow-step-label">{s.label}</span>
+                                        </button>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 復元バナー */}
+                    {wasRestored && (
+                        <div className="mx-3 my-3 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold"
+                             style={{ background: 'linear-gradient(135deg,#fffbeb,#fef3c7)', border: '1px solid #fde68a', color: '#92400e' }}>
+                            <Icon name="refresh-cw" size={14} />
+                            <span className="flex-1">前回の途中フローを復元しました</span>
+                            <button onClick={() => setWasRestored(false)} className="p-1">
+                                <Icon name="x" size={13} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ステップ見出し */}
+                    <div className="px-4 pt-3 max-w-[640px] mx-auto">
+                        <div className="text-[10px] font-bold text-sise-500 tracking-[0.2em]">STEP {currentStep + 1}</div>
+                        <h2 className="text-xl font-extrabold text-slate-800">{step.label}</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">{step.desc}</p>
+                    </div>
+
+                    {/* ステップ本体 */}
+                    <div className="flow-card">
+                        {renderStep()}
+                    </div>
+
+                    {/* アクションバー */}
+                    <div className="flow-action-bar">
+                        {currentStep > 0 && (
+                            <Button variant="secondary" size="md"
+                                    onClick={() => goTo(currentStep - 1)}
+                                    leftIcon={<Icon name="chevron-left" size={14} />}>
+                                戻る
+                            </Button>
+                        )}
+                        {currentStep > 0 && currentStep < FLOW_STEPS.length - 1 && (
+                            <Button variant="ghost" size="md" onClick={handleSkip}>
+                                スキップ
+                            </Button>
+                        )}
+                        <Button variant="primary" size="md"
+                                disabled={!canProceed || submitting}
+                                loading={submitting}
+                                className="flex-1"
+                                onClick={isLast ? handleComplete : handleNext}
+                                rightIcon={!submitting && !isLast ? <Icon name="chevron-right" size={14} /> : null}>
+                            {isLast ? '完了して終了' : (currentStep === 0 ? (canProceed ? '次へ' : 'お客様を選択してください') : '次へ進む')}
+                        </Button>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // Customer360Modal
+        // ============================================================
+        // 1 人のお客様について複数ソース横断で情報をまとめて表示する
+        // モーダル。useSquareData / useManualMembers / useCounselingData
+        // のデータを props で受け取り、同じ「名前」でマッチさせて統合する。
+        // タブ: タイムライン / プロフィール / 決済
+        // ============================================================
+        const Customer360Modal = ({ customer, onClose, memberData, manualMembersHook, counselingHook }) => {
+            const [tab, setTab] = useState('timeline');
+
+            // 同名顧客を全ソースから収集。空文字や空白だけの名前で
+            // false-positive を起こさないよう、双方とも非空を要求。
+            const matched = useMemo(() => {
+                const target = (customer && customer.name) ? customer.name : '';
+                if (!target) return { square: null, manual: null, counselings: [] };
+                const norm = target.toLowerCase().replace(/\s+/g, '');
+                const matches = (s) => {
+                    if (!s || !norm) return false;
+                    const sn = String(s).toLowerCase().replace(/\s+/g, '');
+                    return sn && (sn.includes(norm) || norm.includes(sn));
+                };
+                const square = (memberData?.members || []).find(m => matches(m.name)) || null;
+                const manual = (manualMembersHook?.manualMembers || []).find(m => matches(m.name)) || null;
+                const counselings = (counselingHook?.customers || []).filter(c => matches(c.name));
+                return { square, manual, counselings };
+            }, [customer, memberData, manualMembersHook, counselingHook]);
+
+            // タイムライン: イベントを時系列順に並べる
+            const timeline = useMemo(() => {
+                const events = [];
+                matched.counselings.forEach(c => {
+                    events.push({
+                        date: c.timestamp,
+                        icon: 'file-text', color: '#f59e0b',
+                        title: 'カウンセリングシート送信',
+                        detail: (c.concerns || []).slice(0, 3).join('、') || 'ご来店前のフォーム回答',
+                    });
+                });
+                if (matched.square) {
+                    const m = matched.square;
+                    if (m.startDate) events.push({
+                        date: m.startDate, icon: 'credit-card', color: '#3b82f6',
+                        title: 'Squareサブスク開始', detail: m.planName || '',
+                    });
+                    (m.payments || []).forEach(p => events.push({
+                        date: p.paidAt || p.date,
+                        icon: 'wallet', color: '#10b981',
+                        title: '決済',
+                        detail: `${formatCurrency(p.amount || 0)} ${p.method || ''}`,
+                    }));
+                }
+                if (matched.manual) {
+                    const m = matched.manual;
+                    if (m.startDate) events.push({
+                        date: m.startDate, icon: 'user-plus', color: '#8b5cf6',
+                        title: '手動会員登録', detail: m.planName || '',
+                    });
+                    (m.payments || []).forEach(p => events.push({
+                        date: p.date || p.paidAt,
+                        icon: 'wallet', color: '#10b981',
+                        title: '決済',
+                        detail: `${formatCurrency(p.amount || 0)} ${p.method || ''}`,
+                    }));
+                }
+                return events
+                    .filter(e => e.date)
+                    .map(e => ({ ...e, _d: new Date(e.date) }))
+                    .sort((a, b) => b._d - a._d);
+            }, [matched]);
+
+            const allPayments = useMemo(() => {
+                const list = [];
+                ((matched.square?.payments) || []).forEach(p => list.push({ ...p, source: 'Square' }));
+                ((matched.manual?.payments) || []).forEach(p => list.push({ ...p, source: '手動' }));
+                return list
+                    .filter(p => p.date || p.paidAt)
+                    .sort((a, b) => new Date(b.date || b.paidAt) - new Date(a.date || a.paidAt));
+            }, [matched]);
+
+            if (!customer) return null;
+
+            return (
+                <div className="modal-backdrop" onClick={onClose}>
+                    <div className="modal-panel" onClick={(e) => e.stopPropagation()}
+                         style={{ background:'#fff', borderRadius:24, width:'100%', maxWidth:720, maxHeight:'85vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+                        {/* ヘッダ */}
+                        <div style={{ padding:'20px 24px', background:'linear-gradient(135deg,#f97316,#ea580c)', color:'#fff' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                                <div style={{ width:56, height:56, borderRadius:16, background:'rgba(255,255,255,0.2)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800 }}>
+                                    {getInitial(customer.name)}
+                                </div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                    <div style={{ fontSize:11, fontWeight:700, opacity:0.85, letterSpacing:'.1em' }}>CUSTOMER 360</div>
+                                    <div style={{ fontSize:20, fontWeight:800, marginTop:2 }}>{customer.name}</div>
+                                    <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+                                        {matched.square && <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:'rgba(255,255,255,.22)' }}>Square会員</span>}
+                                        {matched.manual && <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:'rgba(255,255,255,.22)' }}>手動会員</span>}
+                                        {matched.counselings.length > 0 && (
+                                            <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:'rgba(255,255,255,.22)' }}>
+                                                カウンセリング {matched.counselings.length}件
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <button onClick={onClose}
+                                        aria-label="閉じる"
+                                        style={{ padding:8, borderRadius:12, background:'rgba(255,255,255,0.18)', border:'none', color:'#fff', cursor:'pointer' }}>
+                                    <Icon name="x" size={18} />
+                                </button>
+                            </div>
+                        </div>
+                        {/* タブ */}
+                        <div style={{ display:'flex', gap:4, padding:'8px 16px 0', borderBottom:'1px solid #f1f5f9' }}>
+                            {[
+                                { k: 'timeline', l: 'タイムライン', icon: 'activity' },
+                                { k: 'profile',  l: 'プロフィール', icon: 'user' },
+                                { k: 'payments', l: '決済',         icon: 'credit-card' },
+                            ].map(t => (
+                                <button key={t.k} onClick={() => setTab(t.k)}
+                                        style={{
+                                            padding:'10px 14px', borderRadius:'10px 10px 0 0',
+                                            border:'none', background:'transparent', cursor:'pointer',
+                                            color: tab === t.k ? '#9a3412' : '#94a3b8',
+                                            fontSize:13, fontWeight:700,
+                                            borderBottom: tab === t.k ? '2px solid #f97316' : '2px solid transparent',
+                                            display:'flex', alignItems:'center', gap:6,
+                                        }}>
+                                    <Icon name={t.icon} size={13} />
+                                    {t.l}
+                                </button>
+                            ))}
+                        </div>
+                        {/* 本体 */}
+                        <div style={{ flex:1, overflowY:'auto', padding:20 }}>
+                            {tab === 'timeline' && (
+                                timeline.length === 0 ? (
+                                    <EmptyState icon="activity" title="イベント履歴がありません"
+                                        message="決済やカウンセリングなどのイベントがここに時系列で表示されます" compact />
+                                ) : (
+                                    <div style={{ position:'relative', paddingLeft:28 }}>
+                                        <div style={{ position:'absolute', left:13, top:8, bottom:8, width:2, background:'linear-gradient(to bottom,#fed7aa,transparent)' }} />
+                                        {timeline.map((e, i) => (
+                                            <div key={i} style={{ position:'relative', marginBottom:12 }}>
+                                                <div style={{ position:'absolute', left:-28, top:2, width:28, height:28, borderRadius:'50%', background:e.color, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', border:'3px solid #fff', boxShadow:'0 2px 6px rgba(0,0,0,.08)' }}>
+                                                    <Icon name={e.icon} size={13} />
+                                                </div>
+                                                <div style={{ background:'#fafaf9', borderRadius:12, padding:'10px 14px', border:'1px solid #f1f5f9' }}>
+                                                    <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
+                                                        <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>{e.title}</div>
+                                                        <div style={{ fontSize:11, color:'#94a3b8', flexShrink:0 }}>
+                                                            {e._d.toLocaleDateString('ja-JP')}
+                                                        </div>
+                                                    </div>
+                                                    {e.detail && (
+                                                        <div style={{ fontSize:12, color:'#64748b', marginTop:4, lineHeight:1.5 }}>{e.detail}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                            {tab === 'profile' && (
+                                (matched.counselings.length === 0 && !matched.square && !matched.manual) ? (
+                                    <EmptyState icon="user" title="基本情報がありません" compact />
+                                ) : (
+                                    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                                        {matched.counselings.length > 0 && (() => {
+                                            const c = matched.counselings[0];
+                                            return (
+                                                <div style={{ padding:14, background:'#fffbeb', borderRadius:12, border:'1px solid #fde68a' }}>
+                                                    <div style={{ fontSize:12, fontWeight:700, color:'#92400e', marginBottom:8 }}>カウンセリング（最新）</div>
+                                                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                                                        {c.birthday   && <span style={{ fontSize:11, padding:'3px 8px', borderRadius:6, background:'#fff', color:'#78350f', fontWeight:600 }}>誕生日: {c.birthday}</span>}
+                                                        {c.occupation && <span style={{ fontSize:11, padding:'3px 8px', borderRadius:6, background:'#fff', color:'#78350f', fontWeight:600 }}>職業: {c.occupation}</span>}
+                                                        {Array.isArray(c.concerns) && c.concerns.length > 0 && (
+                                                            <span style={{ fontSize:11, padding:'3px 8px', borderRadius:6, background:'#fff', color:'#78350f', fontWeight:600, width:'100%' }}>
+                                                                お悩み: {c.concerns.join('、')}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                        {matched.square && (
+                                            <div style={{ padding:14, background:'#fff7ed', borderRadius:12, border:'1px solid #fed7aa' }}>
+                                                <div style={{ fontSize:12, fontWeight:700, color:'#9a3412', marginBottom:8 }}>Square会員</div>
+                                                <div style={{ fontSize:12, color:'#7c2d12' }}>プラン: <strong>{matched.square.planName || '-'}</strong></div>
+                                                <div style={{ fontSize:12, color:'#7c2d12' }}>ステータス: {matched.square.status || '-'}</div>
+                                                <div style={{ fontSize:12, color:'#7c2d12' }}>月額: {formatCurrency(matched.square.monthlyPrice || 0)}</div>
+                                            </div>
+                                        )}
+                                        {matched.manual && (
+                                            <div style={{ padding:14, background:'#f5f3ff', borderRadius:12, border:'1px solid #ddd6fe' }}>
+                                                <div style={{ fontSize:12, fontWeight:700, color:'#5b21b6', marginBottom:8 }}>手動会員</div>
+                                                <div style={{ fontSize:12, color:'#4c1d95' }}>プラン: <strong>{matched.manual.planName || '-'}</strong></div>
+                                                <div style={{ fontSize:12, color:'#4c1d95' }}>月額: {formatCurrency(matched.manual.monthlyPrice || 0)}</div>
+                                                {matched.manual.phone && <div style={{ fontSize:12, color:'#4c1d95' }}>電話: {matched.manual.phone}</div>}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            )}
+                            {tab === 'payments' && (
+                                allPayments.length === 0 ? (
+                                    <EmptyState icon="credit-card" title="決済履歴がありません" compact />
+                                ) : (
+                                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                                        {allPayments.map((p, i) => (
+                                            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, background:'#fafaf9', border:'1px solid #f1f5f9' }}>
+                                                <div style={{ width:32, height:32, borderRadius:10, background:'#dcfce7', color:'#16a34a', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                                    <Icon name="wallet" size={14} />
+                                                </div>
+                                                <div style={{ flex:1, minWidth:0 }}>
+                                                    <div style={{ fontSize:13, fontWeight:700, color:'#1e293b' }}>
+                                                        {formatCurrency(p.amount || 0)}
+                                                    </div>
+                                                    <div style={{ fontSize:11, color:'#94a3b8' }}>
+                                                        {p.source} / {p.method || '—'}
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize:11, color:'#64748b' }}>
+                                                    {(p.date || p.paidAt || '').toString().slice(0, 10)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // QuickSearchModal (Cmd+K / Ctrl+K)
+        // ============================================================
+        // スポットライト風の横断検索。画面遷移と顧客の Customer360 を
+        // 一画面から開ける。debounce 付きの live filter。
+        // ============================================================
+        const QuickSearchModal = ({ onClose, navItems, onNavigate, onSelectCustomer, memberData, manualMembersHook, counselingHook }) => {
+            const [q, setQ] = useState('');
+            const debouncedQ = useDebounce(q, 120);
+            const inputRef = useRef(null);
+            useEffect(() => { setTimeout(() => inputRef.current?.focus(), 30); }, []);
+
+            const all = useMemo(() => {
+                const list = [];
+                (memberData?.members || []).forEach(m => list.push({
+                    type: 'member', id: m.id, name: m.name || '', phone: m.phone, planName: m.planName, source: 'Square',
+                }));
+                (manualMembersHook?.manualMembers || []).forEach(m => {
+                    if (m.status !== 'ACTIVE') return;
+                    list.push({
+                        type: 'member', id: m.id, name: m.name || '', phone: m.phone, planName: m.planName, source: '手動',
+                    });
+                });
+                (counselingHook?.customers || []).forEach(c => list.push({
+                    type: 'counseling', id: 'c_' + c.index, name: c.name || '', timestamp: c.timestamp,
+                }));
+                return list;
+            }, [memberData, manualMembersHook, counselingHook]);
+
+            const results = useMemo(() => {
+                if (!debouncedQ.trim()) {
+                    return { navs: navItems.slice(0, 6), members: [], customers: [] };
+                }
+                const qq = debouncedQ.toLowerCase();
+                const navs = navItems.filter(n => (n.label || '').toLowerCase().includes(qq)).slice(0, 5);
+                const members = all
+                    .filter(c => c.type === 'member' && (c.name || '').toLowerCase().includes(qq))
+                    .slice(0, 8);
+                const customers = all
+                    .filter(c => c.type === 'counseling' && (c.name || '').toLowerCase().includes(qq))
+                    .slice(0, 5);
+                return { navs, members, customers };
+            }, [debouncedQ, navItems, all]);
+
+            const hasAny = results.navs.length + results.members.length + results.customers.length > 0;
+
+            return (
+                <div className="qs-overlay" onClick={onClose}>
+                    <div className="qs-panel" onClick={(e) => e.stopPropagation()}>
+                        <div style={{ padding:'14px 16px', borderBottom:'1px solid #f1f5f9', display:'flex', alignItems:'center', gap:10 }}>
+                            <Icon name="search" size={18} className="text-slate-400" />
+                            <input ref={inputRef} value={q}
+                                   onChange={(e) => setQ(e.target.value)}
+                                   placeholder="お客様名・画面名で検索..."
+                                   style={{ flex:1, border:'none', outline:'none', fontSize:15, background:'transparent' }} />
+                            <kbd style={{ fontSize:10, padding:'3px 7px', borderRadius:6, background:'#f1f5f9', color:'#64748b', fontWeight:700 }}>ESC</kbd>
+                        </div>
+                        <div style={{ maxHeight:420, overflowY:'auto', padding:'8px 8px 12px' }}>
+                            {results.navs.length > 0 && (
+                                <div style={{ marginBottom:6 }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', padding:'8px 10px 4px', letterSpacing:'.1em' }}>画面</div>
+                                    {results.navs.map(n => (
+                                        <button key={n.id} onClick={() => onNavigate(n.id)}
+                                                className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left hover:bg-sise-50/50 transition"
+                                                style={{ border:'none', background:'transparent', cursor:'pointer' }}>
+                                            <span style={{ width:28, height:28, borderRadius:8, background:'#fff7ed', color:'#9a3412', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                                <Icon name={n.icon} size={14} />
+                                            </span>
+                                            <span style={{ fontSize:14, fontWeight:600, color:'#1e293b', flex:1 }}>{n.label}</span>
+                                            <Icon name="chevron-right" size={14} className="text-slate-300" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {results.members.length > 0 && (
+                                <div style={{ marginBottom:6 }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', padding:'8px 10px 4px', letterSpacing:'.1em' }}>会員</div>
+                                    {results.members.map((m, i) => (
+                                        <button key={`${m.id}_${i}`}
+                                                onClick={() => onSelectCustomer(m)}
+                                                className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left hover:bg-sise-50/50 transition"
+                                                style={{ border:'none', background:'transparent', cursor:'pointer' }}>
+                                            <Avatar name={m.name} size={28} />
+                                            <div style={{ flex:1, minWidth:0 }}>
+                                                <div style={{ fontSize:14, fontWeight:600, color:'#1e293b' }}>{m.name}</div>
+                                                <div style={{ fontSize:11, color:'#94a3b8' }}>
+                                                    {m.planName || m.phone || m.source}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {results.customers.length > 0 && (
+                                <div style={{ marginBottom:6 }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', padding:'8px 10px 4px', letterSpacing:'.1em' }}>カウンセリング</div>
+                                    {results.customers.map((c, i) => (
+                                        <button key={`${c.id}_${i}`}
+                                                onClick={() => onSelectCustomer(c)}
+                                                className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left hover:bg-sise-50/50 transition"
+                                                style={{ border:'none', background:'transparent', cursor:'pointer' }}>
+                                            <span style={{ width:28, height:28, borderRadius:8, background:'#fef3c7', color:'#92400e', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                                <Icon name="file-text" size={14} />
+                                            </span>
+                                            <div style={{ flex:1 }}>
+                                                <div style={{ fontSize:14, fontWeight:600, color:'#1e293b' }}>{c.name}</div>
+                                                <div style={{ fontSize:11, color:'#94a3b8' }}>
+                                                    {c.timestamp ? new Date(c.timestamp).toLocaleDateString('ja-JP') : ''}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {!hasAny && (
+                                <EmptyState icon="search" title="該当する結果がありません" compact />
+                            )}
+                        </div>
+                        <div style={{ padding:'10px 16px', borderTop:'1px solid #f1f5f9', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:11, color:'#94a3b8' }}>
+                            <span>画面・会員・カウンセリングを横断検索</span>
+                            <span>
+                                <kbd style={{ padding:'2px 6px', borderRadius:4, background:'#f1f5f9', color:'#64748b', fontWeight:700 }}>Ctrl</kbd>+<kbd style={{ padding:'2px 6px', borderRadius:4, background:'#f1f5f9', color:'#64748b', fontWeight:700 }}>K</kbd>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const DashboardView = ({ memberData, reportData, selectedStore, setSelectedStore, allowedStoreNames, onStartFlow }) => {
             const [dateRange, setDateRange] = useState('month');
 
             if (!window.Recharts) return <div className="p-8 text-center">チャートを読み込み中...</div>;
@@ -4458,6 +5446,25 @@
 
             return (
                 <div className="space-y-4 md:space-y-5">
+                    {/* 来店フロー開始ボタン: onStartFlow が渡された時だけ表示 */}
+                    {onStartFlow && (
+                        <button
+                            onClick={onStartFlow}
+                            className="w-full p-4 rounded-2xl border-2 border-sise-200 bg-gradient-to-r from-sise-50 to-amber-50 hover:from-sise-100 hover:to-amber-100 transition-all duration-300 active:scale-[0.98] group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sise-400 to-sise-600 text-white flex items-center justify-center shadow-lg shadow-sise-500/25 group-hover:scale-105 transition-transform">
+                                    <Icon name="footprints" size={22} />
+                                </div>
+                                <div className="text-left flex-1">
+                                    <h3 className="text-sm font-extrabold text-sise-800">来店フローを開始</h3>
+                                    <p className="text-[11px] text-sise-500 mt-0.5">受付 → カウンセリング → 施術 → 会計 → 完了</p>
+                                </div>
+                                <Icon name="chevron-right" size={20} className="text-sise-400 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        </button>
+                    )}
+
                     {/* フィルターバー */}
                     <Card className="!p-3 md:!p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -11564,6 +12571,16 @@
             // returns to the new view without a stale overlay on top.
             const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
+            // 来店フロー (FlowNavigationView) の表示制御。true で App の通常
+            // レイアウトに代わってフローを全画面表示する。
+            const [flowMode, setFlowMode] = useState(false);
+
+            // Customer 360 モーダル: 開いているお客様を保持。null で閉。
+            const [c360Customer, setC360Customer] = useState(null);
+
+            // クイック検索モーダル: Cmd+K で起動するスポットライト風 UI。
+            const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+
             const isStaffMode = !!currentAccess;
             const [activeStoreId, setActiveStoreId] = useState(
                 isStaffMode && currentAccess.storeIds.length === 1 ? currentAccess.storeIds[0] : 'all'
@@ -11613,6 +12630,34 @@
             // ビュー変更時に "もっと" メニューを自動的に閉じる。
             // タップ → ナビ確定 → そのまま新しい画面が見える、という遷移にする。
             useEffect(() => { setMoreMenuOpen(false); }, [currentView]);
+
+            // ============================================================
+            // グローバルキーボードショートカット
+            // ============================================================
+            // - Cmd/Ctrl + K  : クイック検索モーダルを開く（入力中でも有効）
+            // - Esc           : 開いているモーダルを順に閉じる（quickSearch
+            //                    → c360 → moreMenu → sidebar → flow）
+            // 入力中フィールドの値編集中でも Cmd+K と Esc を奪わないよう、
+            // registerShortcut 側で preventDefault を判定する。
+            // ============================================================
+            useEffect(() => {
+                const unreg = registerShortcut((e) => {
+                    const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+                    const modKey = isMac ? e.metaKey : e.ctrlKey;
+                    if (modKey && e.key.toLowerCase() === 'k') {
+                        setQuickSearchOpen(true);
+                        return true; // preventDefault
+                    }
+                    if (e.key === 'Escape') {
+                        if (quickSearchOpen) { setQuickSearchOpen(false); return true; }
+                        if (c360Customer)    { setC360Customer(null);    return true; }
+                        if (moreMenuOpen)    { setMoreMenuOpen(false);   return true; }
+                        if (isSidebarOpen)   { setIsSidebarOpen(false);  return true; }
+                    }
+                    return false;
+                });
+                return unreg;
+            }, [quickSearchOpen, c360Customer, moreMenuOpen, isSidebarOpen]);
 
             // プルトゥリフレッシュ
             const [pullState, setPullState] = useState({ pulling: false, refreshing: false, distance: 0 });
@@ -11746,6 +12791,7 @@
                             selectedStore={selectedStore}
                             setSelectedStore={setSelectedStore}
                             allowedStoreNames={allowedStoreNames}
+                            onStartFlow={() => setFlowMode(true)}
                         />;
                     case 'reports':
                         return <DailyReportListView reportData={reportData} allowedStoreNames={allowedStoreNames} />;
@@ -11792,12 +12838,60 @@
                 }
             };
 
+            // 来店フローモード: 通常レイアウト（ヘッダ・サイドバー・タブ等）を
+            // 全部置き換えて、フロー UI のみを表示する。Toast / ConfirmDialog
+            // はグローバル要素なので維持する。
+            if (flowMode) {
+                return (
+                    <div className="min-h-screen relative">
+                        <ToastContainer />
+                        <ConfirmDialogContainer />
+                        <FlowNavigationView
+                            onClose={() => setFlowMode(false)}
+                            memberData={memberData}
+                            manualMembersHook={manualMembersHook}
+                            cashbookHook={cashbookHook}
+                            activeStoreId={activeStoreId}
+                        />
+                    </div>
+                );
+            }
+
             return (
                 <div className="min-h-screen bg-slate-50 bg-mesh relative">
                     {/* トースト通知 */}
                     <ToastContainer />
                     {/* グローバル確認ダイアログ。imperative confirmDialog() Promise が解決される */}
                     <ConfirmDialogContainer />
+                    {/* Customer 360 モーダル: c360Customer に値が入っている時だけ描画 */}
+                    {c360Customer && (
+                        <Customer360Modal
+                            customer={c360Customer}
+                            onClose={() => setC360Customer(null)}
+                            memberData={memberData}
+                            manualMembersHook={manualMembersHook}
+                            counselingHook={counselingHook}
+                        />
+                    )}
+                    {/* クイック検索モーダル: Cmd+K で開閉 */}
+                    {quickSearchOpen && (
+                        <QuickSearchModal
+                            onClose={() => setQuickSearchOpen(false)}
+                            navItems={navItems}
+                            memberData={memberData}
+                            manualMembersHook={manualMembersHook}
+                            counselingHook={counselingHook}
+                            onNavigate={(id) => {
+                                setCurrentView(id);
+                                setQuickSearchOpen(false);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            onSelectCustomer={(c) => {
+                                setC360Customer({ id: c.id, name: c.name, phone: c.phone, source: c.source });
+                                setQuickSearchOpen(false);
+                            }}
+                        />
+                    )}
                     {/* トップローディングバー */}
                     <div className={`top-loading-bar ${memberData.loading || reportData.loading ? 'active' : ''}`}></div>
                     {/* 背景装飾オーブ */}
