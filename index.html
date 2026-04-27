@@ -33,6 +33,9 @@
     <!-- QR Code Generator -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.0/build/qrcode.min.js"></script>
 
+    <!-- html2canvas (TreatmentReportView の PNG 書き出し用) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
     <!-- Custom Config for Tailwind (Kumanomi Theme - Orange Clownfish) -->
     <script>
         tailwind.config = {
@@ -1106,6 +1109,115 @@
             font-size: 13px; font-weight: 800;
             text-align: center;
             font-variant-numeric: tabular-nums;
+        }
+
+        /* =========================================================
+           施術レポート (TreatmentReportView)
+           編集パネル + プレビューカードの 2 ペイン構成。プレビューは
+           html2canvas で PNG 出力する都合で、固定幅 (380px) の
+           「カード」風レイアウトにする。
+           ========================================================= */
+        .tr-shell {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 12px;
+        }
+        @media (min-width: 1024px) {
+            .tr-shell {
+                grid-template-columns: minmax(0, 1fr) 420px;
+                align-items: start;
+            }
+        }
+        .tr-editor {
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .tr-section {
+            background: #fff;
+            border: 1px solid rgba(249,115,22,0.08);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        .dark .tr-section {
+            background: #1f1208;
+            border-color: rgba(249,115,22,0.18);
+        }
+        .tr-section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 800; color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .dark .tr-section-title { color: #e2e8f0; }
+        .tr-stretch-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1.5px solid #e2e8f0;
+            background: #fff;
+            font-size: 12px; font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tr-stretch-chip.active {
+            border-color: #f97316;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        .tr-preview-wrap {
+            position: sticky; top: 110px;
+            display: flex; flex-direction: column; gap: 10px;
+            align-items: center;
+        }
+        @media (max-width: 1023px) {
+            .tr-preview-wrap { position: static; }
+        }
+        /* プレビューカード本体: html2canvas 互換のため固定 px サイズ */
+        .tr-card {
+            width: 380px;
+            background: #fff;
+            color: #1e293b;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 12px 32px -8px rgba(15,23,42,0.18);
+            font-family: "Noto Sans JP", "Hiragino Sans", sans-serif;
+        }
+        .tr-card-header {
+            padding: 22px 24px 18px;
+            background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+            border-bottom: 1px solid rgba(249,115,22,0.12);
+        }
+        .tr-card-body { padding: 18px 22px; }
+        .tr-card-footer {
+            padding: 16px 22px 22px;
+            background: linear-gradient(180deg, #fffaf5, #fff);
+            border-top: 1px dashed rgba(249,115,22,0.18);
+        }
+        .tr-card .menu-pill {
+            display: inline-block;
+            padding: 4px 10px;
+            margin: 0 4px 4px 0;
+            border-radius: 8px;
+            font-size: 11px; font-weight: 700;
+            background: #ffedd5; color: #9a3412;
+        }
+        .tr-score-row {
+            display: flex; align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+        }
+        .tr-score-bar {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #f1f5f9;
+            overflow: hidden;
+            position: relative;
+        }
+        .tr-score-bar-fill {
+            position: absolute; inset: 0;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #f97316, #ea580c);
         }
 
         /* Gradient button */
@@ -5986,6 +6098,478 @@
                         <p className="text-[10px] text-slate-400 text-center mt-4 max-w-md mx-auto leading-relaxed">
                             ※ スコアは MediaPipe Pose の関節点から算出した簡易な指標です。<br />
                             医療的診断ではなく、施術前後の変化を共有する目的でご利用ください。
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // TreatmentReportView (施術レポート)
+        // ============================================================
+        // 施術後にお客様へお渡しする「カード型レポート」を作る画面。
+        // 編集パネル（左/上）とプレビュー（右/下）の二画面構成で、
+        // 入力するたびにプレビューが更新される。html2canvas で PNG
+        // 化してダウンロード or LINE で共有する想定。
+        //
+        // 構成:
+        // - お客様情報 (name + visitDate + 担当)
+        // - 本日の施術メニュー (チップ複数選択)
+        // - 体のスコア (0..5 を 0.5 刻み、5 項目: 姿勢・骨盤・顔・代謝・柔軟)
+        // - コメント (テンプレ + 自由記述)
+        // - お渡し用ストレッチ (チップ複数選択 + 自由記述)
+        // ============================================================
+
+        // スコアカテゴリ定義
+        const TR_SCORE_KEYS = [
+            { key: 'posture',    label: '姿勢' },
+            { key: 'pelvis',     label: '骨盤' },
+            { key: 'face',       label: '顔・頭' },
+            { key: 'metabolism', label: '代謝・巡り' },
+            { key: 'flex',       label: '柔軟性' },
+        ];
+
+        // コメントテンプレ（よく使うパターン）
+        const TR_COMMENT_TEMPLATES = [
+            { key: 'maintenance', label: '継続ケア', text:
+                '本日もご来店ありがとうございました。\n前回より状態が安定してきています。引き続き定期的なケアで維持していきましょう。' },
+            { key: 'first',       label: '初回',     text:
+                '本日はご来店ありがとうございました。\nまずは姿勢の癖を意識する所から始めてみてください。少しずつ身体が変わっていくのを一緒に見ていきましょう。' },
+            { key: 'shoulder',    label: '肩・首',   text:
+                '肩・首まわりの緊張が強く出ていました。お伝えしたストレッチを 1 日 1 回でも継続して頂けると効果が出やすいです。' },
+            { key: 'pelvis',      label: '骨盤',     text:
+                '骨盤の左右差が見られました。座り方の左右クセに気をつけて、骨盤体操を毎日続けてみてください。' },
+            { key: 'face',        label: '小顔',     text:
+                '食いしばり由来の側頭部・咬筋の張りがありました。顎の力を抜いて、お渡しした耳まわしを 1 日数回試してみてください。' },
+            { key: 'cold',        label: '冷え',     text:
+                'むくみ・冷えのサインが強く出ていました。湯船にゆっくり浸かる + ふくらはぎのストレッチで巡りを良くしていきましょう。' },
+        ];
+
+        // よく使うストレッチ候補（ラベル + 短い説明）
+        const TR_STRETCH_OPTIONS = [
+            { key: 'chest',     label: '胸ひらき',     desc: '壁の横で腕を後ろに 15 秒キープ' },
+            { key: 'scapula',   label: '肩甲骨はがし', desc: '腕を後ろに引いて 5 秒、力を抜く × 5回' },
+            { key: 'neck',      label: '首伸ばし',     desc: '頭を斜め前に倒して 15 秒、左右各 2 回' },
+            { key: 'pelvis',    label: '骨盤体操',     desc: '椅子に浅く座って前後にゆらす × 10 回' },
+            { key: 'hip',       label: '股関節ほぐし', desc: '仰向けで膝を抱え、肩方向にひきつける × 各 10 秒' },
+            { key: 'glute',     label: 'お尻ストレッチ', desc: '椅子に座り片足を反対の膝にのせて前傾 × 各 20 秒' },
+            { key: 'calf',      label: 'ふくらはぎ',   desc: 'かかと上げ下げ × 10 回 (1 日 2 セット)' },
+            { key: 'face',      label: '耳まわし',     desc: '耳をつまんで前後に大きく 30 秒' },
+            { key: 'jaw',       label: '咬筋ゆるめ',   desc: 'こめかみ〜エラ周りを指圧で軽くほぐす' },
+        ];
+
+        // スコアバッジ用の色（オレンジ基調 + 状態色）
+        const _trScoreColor = (s) =>
+            s >= 4   ? '#16a34a' :
+            s >= 3   ? '#84cc16' :
+            s >= 2   ? '#f97316' :
+            '#dc2626';
+
+        const TreatmentReportView = () => {
+            // 既定値: 今日 + 5 項目スコア = 3 で中間
+            const [customerName, setCustomerName] = useState('');
+            const [visitDate, setVisitDate]       = useState(() => todayLocalYMD());
+            const [staffName, setStaffName]       = useState('');
+            const [menuChecks, setMenuChecks]     = useState({
+                '骨盤矯正': false, '姿勢矯正': false, '小顔矯正': false,
+                'ほぐし':   false, '鍼灸':     false, '美容鍼':   false,
+            });
+            const [scores, setScores]   = useState(() =>
+                TR_SCORE_KEYS.reduce((o, s) => ({ ...o, [s.key]: 3 }), {}));
+            const [comment, setComment] = useState('');
+            const [stretchChecks, setStretchChecks] = useState({});
+            const [stretchNote, setStretchNote]     = useState('');
+            const [exporting, setExporting]         = useState(false);
+
+            const captureRef = useRef(null);
+
+            const activeMenus = Object.keys(menuChecks).filter(k => menuChecks[k]);
+            const activeStretches = TR_STRETCH_OPTIONS.filter(s => stretchChecks[s.key]);
+
+            // 平均スコア (10 段階換算で 0..10 にすると見栄えが良い)
+            const avgScore = useMemo(() => {
+                const vals = TR_SCORE_KEYS.map(k => scores[k.key]).filter(v => typeof v === 'number');
+                if (vals.length === 0) return 0;
+                return vals.reduce((s, v) => s + v, 0) / vals.length;
+            }, [scores]);
+
+            // レーダーチャート用データ
+            const radarData = useMemo(() =>
+                TR_SCORE_KEYS.map(k => ({ subject: k.label, value: scores[k.key], fullMark: 5 })),
+                [scores]);
+
+            const applyTemplate = (key) => {
+                const tmpl = TR_COMMENT_TEMPLATES.find(t => t.key === key);
+                if (tmpl) setComment(tmpl.text);
+            };
+
+            const reset = async () => {
+                if (!await confirmDialog({
+                    title: 'リセット', message: '入力内容を全てクリアします。よろしいですか?',
+                    confirmLabel: 'クリア', variant: 'danger',
+                })) return;
+                setCustomerName(''); setStaffName(''); setComment(''); setStretchNote('');
+                setVisitDate(todayLocalYMD());
+                setMenuChecks({ '骨盤矯正': false, '姿勢矯正': false, '小顔矯正': false, 'ほぐし': false, '鍼灸': false, '美容鍼': false });
+                setScores(TR_SCORE_KEYS.reduce((o, s) => ({ ...o, [s.key]: 3 }), {}));
+                setStretchChecks({});
+                hapticTap();
+            };
+
+            const exportPng = useCallback(async () => {
+                if (!captureRef.current) return;
+                if (typeof html2canvas !== 'function') {
+                    showToast('エクスポートライブラリが読み込めていません', 'error');
+                    return;
+                }
+                setExporting(true);
+                try {
+                    const canvas = await html2canvas(captureRef.current, {
+                        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+                    });
+                    const url = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    const safeName = (customerName.trim() || 'customer').replace(/\s+/g, '_');
+                    a.download = `report_${safeName}_${visitDate}.png`;
+                    a.href = url;
+                    document.body.appendChild(a); a.click(); a.remove();
+                    hapticSuccess();
+                    showToast('PNG を保存しました', 'success', 1800);
+                } catch (e) {
+                    console.error('[treatment-report] export error:', e);
+                    showToast('画像の書き出しに失敗しました', 'error');
+                } finally {
+                    setExporting(false);
+                }
+            }, [customerName, visitDate]);
+
+            // LINE Flex Message JSON を生成してダウンロード。
+            // GAS/サーバが無いと送信は出来ないので、JSON として落として
+            // 別ツール (LINE 公式 Bot Designer 等) に持ち込めるようにする。
+            const exportFlexJson = useCallback(() => {
+                const stretches = activeStretches.map(s => ({
+                    type: 'box', layout: 'vertical', spacing: 'xs',
+                    contents: [
+                        { type: 'text', text: '◆ ' + s.label, size: 'sm', weight: 'bold', color: '#9a3412' },
+                        { type: 'text', text: s.desc,         size: 'xs', color: '#64748b', wrap: true },
+                    ],
+                }));
+                if (stretchNote.trim()) {
+                    stretches.push({
+                        type: 'box', layout: 'vertical', spacing: 'xs',
+                        contents: [
+                            { type: 'text', text: '◆ メモ', size: 'sm', weight: 'bold', color: '#9a3412' },
+                            { type: 'text', text: stretchNote.trim(), size: 'xs', color: '#64748b', wrap: true },
+                        ],
+                    });
+                }
+                const flex = {
+                    type: 'flex',
+                    altText: `${customerName || 'お客様'}さま 施術レポート (${visitDate})`,
+                    contents: {
+                        type: 'bubble',
+                        size: 'mega',
+                        header: {
+                            type: 'box', layout: 'vertical', paddingAll: '20px',
+                            backgroundColor: '#fff7ed',
+                            contents: [
+                                { type: 'text', text: 'くまのみ整体院', size: 'xs', color: '#9a3412', weight: 'bold' },
+                                { type: 'text', text: '本日の施術レポート', size: 'lg', color: '#1e293b', weight: 'bold', margin: 'sm' },
+                                { type: 'text', text: visitDate, size: 'xs', color: '#94a3b8', margin: 'sm' },
+                            ],
+                        },
+                        body: {
+                            type: 'box', layout: 'vertical', spacing: 'md', paddingAll: '20px',
+                            contents: [
+                                { type: 'text', text: customerName || 'お客様', size: 'md', weight: 'bold' },
+                                ...(activeMenus.length > 0 ? [{
+                                    type: 'box', layout: 'vertical', spacing: 'xs',
+                                    contents: [
+                                        { type: 'text', text: '本日の施術', size: 'xs', color: '#94a3b8' },
+                                        { type: 'text', text: activeMenus.join(' / '), size: 'sm', color: '#1e293b', wrap: true },
+                                    ],
+                                }] : []),
+                                ...(comment.trim() ? [{
+                                    type: 'box', layout: 'vertical', spacing: 'xs',
+                                    contents: [
+                                        { type: 'text', text: '担当より', size: 'xs', color: '#94a3b8' },
+                                        { type: 'text', text: comment.trim(), size: 'sm', color: '#1e293b', wrap: true },
+                                    ],
+                                }] : []),
+                                ...(stretches.length > 0 ? [{
+                                    type: 'box', layout: 'vertical', spacing: 'sm', margin: 'md',
+                                    contents: [
+                                        { type: 'text', text: 'おすすめストレッチ', size: 'xs', color: '#94a3b8' },
+                                        ...stretches,
+                                    ],
+                                }] : []),
+                            ],
+                        },
+                        footer: {
+                            type: 'box', layout: 'vertical', paddingAll: '12px', backgroundColor: '#fffaf5',
+                            contents: [
+                                { type: 'text', text: staffName ? `担当: ${staffName}` : 'くまのみ整体院',
+                                  size: 'xs', color: '#94a3b8', align: 'center' },
+                            ],
+                        },
+                    },
+                };
+                const blob = new Blob([JSON.stringify(flex, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const safeName = (customerName.trim() || 'customer').replace(/\s+/g, '_');
+                a.download = `flex_${safeName}_${visitDate}.json`;
+                a.href = url;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 0);
+                showToast('LINE Flex JSON をダウンロードしました', 'success', 2000);
+            }, [activeMenus, activeStretches, comment, stretchNote, customerName, visitDate, staffName]);
+
+            return (
+                <div className="tr-shell max-w-6xl mx-auto">
+                    {/* ===== 編集パネル ===== */}
+                    <div className="tr-editor">
+                        <div className="flex items-center justify-between gap-2 px-1">
+                            <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                <Icon name="file-heart" size={16} className="text-sise-500" />
+                                施術レポート
+                            </h2>
+                            <Button variant="ghost" size="sm"
+                                    leftIcon={<Icon name="rotate-ccw" size={12} />}
+                                    onClick={reset}>
+                                クリア
+                            </Button>
+                        </div>
+
+                        {/* お客様情報 */}
+                        <div className="tr-section">
+                            <div className="tr-section-title">
+                                <Icon name="user" size={14} className="text-sise-500" />
+                                お客様情報
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <FloatingInput label="お名前" value={customerName}
+                                               onChange={(e) => setCustomerName(e.target.value)} />
+                                <FloatingInput label="ご来店日" type="date" value={visitDate}
+                                               onChange={(e) => setVisitDate(e.target.value)} />
+                                <FloatingInput label="担当スタッフ (任意)" value={staffName}
+                                               onChange={(e) => setStaffName(e.target.value)}
+                                               className="md:col-span-2" />
+                            </div>
+                        </div>
+
+                        {/* 本日のメニュー */}
+                        <div className="tr-section">
+                            <div className="tr-section-title">
+                                <Icon name="list-checks" size={14} className="text-sise-500" />
+                                本日の施術メニュー
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.keys(menuChecks).map(m => {
+                                    const checked = !!menuChecks[m];
+                                    return (
+                                        <button key={m}
+                                                onClick={() => setMenuChecks(p => ({ ...p, [m]: !p[m] }))}
+                                                className="tr-stretch-chip"
+                                                style={checked ? { borderColor:'#f97316', background:'#fff7ed', color:'#9a3412' } : undefined}>
+                                            <Icon name={checked ? 'check-square' : 'square'} size={13} />
+                                            {m}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* スコア */}
+                        <div className="tr-section">
+                            <div className="tr-section-title">
+                                <Icon name="bar-chart-2" size={14} className="text-sise-500" />
+                                体のスコア (0 〜 5)
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {TR_SCORE_KEYS.map(k => {
+                                    const v = scores[k.key];
+                                    return (
+                                        <div key={k.key}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs font-bold text-slate-700">{k.label}</span>
+                                                <span className="text-xs font-extrabold tabular-nums"
+                                                      style={{ color: _trScoreColor(v) }}>
+                                                    {v.toFixed(1)}
+                                                </span>
+                                            </div>
+                                            <input type="range" min="0" max="5" step="0.5" value={v}
+                                                   onChange={(e) => setScores(p => ({ ...p, [k.key]: parseFloat(e.target.value) }))}
+                                                   className="w-full accent-sise-500" />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* コメント */}
+                        <div className="tr-section">
+                            <div className="tr-section-title">
+                                <Icon name="message-square" size={14} className="text-sise-500" />
+                                担当からのコメント
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {TR_COMMENT_TEMPLATES.map(t => (
+                                    <button key={t.key}
+                                            onClick={() => applyTemplate(t.key)}
+                                            className="tr-stretch-chip"
+                                            title={t.text.split('\n')[0]}>
+                                        <Icon name="sparkles" size={12} />
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <FloatingInput type="textarea" rows={5}
+                                           label="コメント本文"
+                                           value={comment}
+                                           onChange={(e) => setComment(e.target.value)} />
+                        </div>
+
+                        {/* ストレッチ */}
+                        <div className="tr-section">
+                            <div className="tr-section-title">
+                                <Icon name="activity" size={14} className="text-sise-500" />
+                                おすすめストレッチ
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {TR_STRETCH_OPTIONS.map(s => {
+                                    const checked = !!stretchChecks[s.key];
+                                    return (
+                                        <button key={s.key}
+                                                onClick={() => setStretchChecks(p => ({ ...p, [s.key]: !p[s.key] }))}
+                                                className={`tr-stretch-chip ${checked ? 'active' : ''}`}>
+                                            <Icon name={checked ? 'check-circle' : 'circle'} size={13} />
+                                            {s.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <FloatingInput type="textarea" rows={3}
+                                           label="自由メモ (任意)"
+                                           value={stretchNote}
+                                           onChange={(e) => setStretchNote(e.target.value)} />
+                        </div>
+                    </div>
+
+                    {/* ===== プレビュー ===== */}
+                    <div className="tr-preview-wrap">
+                        {/* アクション */}
+                        <div className="flex items-center gap-2 w-full max-w-[380px]">
+                            <Button variant="primary" className="flex-1"
+                                    loading={exporting}
+                                    leftIcon={!exporting && <Icon name="image" size={14} />}
+                                    onClick={exportPng}>
+                                {exporting ? '書き出し中…' : 'PNG で保存'}
+                            </Button>
+                            <Button variant="secondary"
+                                    leftIcon={<Icon name="download" size={14} />}
+                                    onClick={exportFlexJson}>
+                                Flex JSON
+                            </Button>
+                        </div>
+
+                        {/* カード */}
+                        <div ref={captureRef} className="tr-card">
+                            <div className="tr-card-header">
+                                <div style={{ fontSize:11, fontWeight:700, color:'#9a3412', letterSpacing:'0.1em' }}>
+                                    KUMANOMI CARE REPORT
+                                </div>
+                                <div style={{ fontSize:18, fontWeight:800, color:'#1e293b', marginTop:6 }}>
+                                    {customerName ? `${customerName} 様` : 'お客様'}
+                                </div>
+                                <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>
+                                    {visitDate}{staffName && ` ・ 担当: ${staffName}`}
+                                </div>
+                            </div>
+                            <div className="tr-card-body">
+                                {/* メニュー */}
+                                {activeMenus.length > 0 && (
+                                    <div style={{ marginBottom:14 }}>
+                                        <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'.1em', marginBottom:6 }}>
+                                            TODAY'S MENU
+                                        </div>
+                                        <div>
+                                            {activeMenus.map(m => (
+                                                <span key={m} className="menu-pill">{m}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* スコア (シンプルなバー表示。レーダーは画像化が崩れやすい場合があるため省略) */}
+                                <div style={{ marginBottom:14 }}>
+                                    <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'.1em', marginBottom:6 }}>
+                                        BODY SCORE
+                                    </div>
+                                    {TR_SCORE_KEYS.map(k => {
+                                        const v = scores[k.key] || 0;
+                                        const pct = (v / 5) * 100;
+                                        return (
+                                            <div key={k.key} className="tr-score-row">
+                                                <span style={{ fontSize:11, fontWeight:700, color:'#475569', width:60 }}>
+                                                    {k.label}
+                                                </span>
+                                                <div className="tr-score-bar">
+                                                    <div className="tr-score-bar-fill" style={{ width: pct + '%' }} />
+                                                </div>
+                                                <span style={{ fontSize:11, fontWeight:800, color: _trScoreColor(v), width:28, textAlign:'right' }}>
+                                                    {v.toFixed(1)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* コメント */}
+                                {comment.trim() && (
+                                    <div style={{ marginBottom:14 }}>
+                                        <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'.1em', marginBottom:6 }}>
+                                            FROM YOUR THERAPIST
+                                        </div>
+                                        <div style={{ fontSize:12, lineHeight:1.7, color:'#334155', whiteSpace:'pre-wrap' }}>
+                                            {comment.trim()}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ストレッチ */}
+                                {(activeStretches.length > 0 || stretchNote.trim()) && (
+                                    <div>
+                                        <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'.1em', marginBottom:6 }}>
+                                            HOMEWORK
+                                        </div>
+                                        {activeStretches.map(s => (
+                                            <div key={s.key} style={{ marginBottom:8 }}>
+                                                <div style={{ fontSize:12, fontWeight:700, color:'#9a3412' }}>◆ {s.label}</div>
+                                                <div style={{ fontSize:11, color:'#64748b', lineHeight:1.6 }}>{s.desc}</div>
+                                            </div>
+                                        ))}
+                                        {stretchNote.trim() && (
+                                            <div style={{ marginTop:8, padding:'8px 10px', background:'#fffaf5', borderRadius:8, fontSize:11, color:'#7c2d12', whiteSpace:'pre-wrap', lineHeight:1.6 }}>
+                                                {stretchNote.trim()}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="tr-card-footer">
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                                    <div style={{ fontSize:11, fontWeight:700, color:'#9a3412' }}>くまのみ整体院</div>
+                                    <div style={{ fontSize:10, color:'#94a3b8' }}>
+                                        SCORE AVG {avgScore.toFixed(1)} / 5.0
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="text-[10px] text-slate-400 max-w-[380px] text-center leading-relaxed mt-1">
+                            「PNG で保存」でカード画像、「Flex JSON」で LINE 配信用 JSON が
+                            ダウンロードされます。
                         </p>
                     </div>
                 </div>
@@ -13464,8 +14048,7 @@
                     case 'counseling':
                         return <ConceptFormView counselingHook={counselingHook} activeStoreId={activeStoreId} memberData={memberData} />;
                     case 'treatment-report':
-                        return <ComingSoon title="施術レポート" icon="file-heart"
-                            description="施術内容・スコア・宿題ストレッチをまとめてLINEで送れるレポート画面を準備中です。" />;
+                        return <TreatmentReportView />;
                     case 'posture':
                         return <PostureAnalysisView />;
                     case 'line':
