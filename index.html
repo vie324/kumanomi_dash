@@ -564,6 +564,179 @@
             padding: 4px 10px;
         }
 
+        /* =========================================================
+           Top Tab Navigation (Mobile) — primary 5 tabs + sliding
+           underline that animates between active tabs (FLIP-style).
+           Pairs with the bottom-sheet "more" menu for secondary
+           views. Replaces the older fixed bottom-nav on mobile.
+           ========================================================= */
+        .top-tab-nav {
+            position: fixed;
+            top: 56px; /* matches header h-14 on mobile */
+            left: 0; right: 0;
+            z-index: 45;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px) saturate(1.6);
+            -webkit-backdrop-filter: blur(20px) saturate(1.6);
+            border-bottom: 1px solid rgba(249,115,22,0.1);
+            box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+        }
+        .dark .top-tab-nav {
+            background: rgba(31,18,8,0.95);
+            border-color: rgba(249,115,22,0.15);
+        }
+        .top-tab-nav-inner {
+            display: flex;
+            align-items: stretch;
+            height: 46px;
+            padding: 0 4px;
+            position: relative; /* anchor for the sliding underline */
+        }
+        .top-tab-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            transition: color 0.2s ease;
+            position: relative;
+            flex: 1;
+            white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        .top-tab-item:active { opacity: 0.7; }
+        .top-tab-item.active { color: #f97316; }
+        .top-tab-item svg { flex-shrink: 0; }
+        .top-tab-underline {
+            position: absolute;
+            bottom: 0;
+            height: 2.5px;
+            background: linear-gradient(90deg, #f97316, #fb923c);
+            border-radius: 4px 4px 0 0;
+            transition: left 0.35s cubic-bezier(0.16,1,0.3,1),
+                        width 0.35s cubic-bezier(0.16,1,0.3,1),
+                        opacity 0.2s ease;
+            pointer-events: none;
+            will-change: left, width;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .top-tab-underline { transition: none; }
+        }
+
+        /* =========================================================
+           "More" bottom sheet — drawer for secondary nav items that
+           don't fit in the 5 primary top tabs. Drag the handle down
+           or tap the overlay to close.
+           ========================================================= */
+        .more-sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 9998;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .more-sheet {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 9999;
+            background: #fff;
+            border-radius: 20px 20px 0 0;
+            padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+            box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
+            animation: sheetSlideUp 0.3s cubic-bezier(0.16,1,0.3,1);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .dark .more-sheet { background: #1f1208; }
+        @keyframes sheetSlideUp {
+            from { transform: translateY(100%); }
+            to   { transform: translateY(0); }
+        }
+        .more-sheet-handle {
+            width: 36px; height: 4px;
+            background: #d1d5db;
+            border-radius: 4px;
+            margin: 0 auto 16px;
+        }
+        .more-sheet-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+        .more-sheet-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 14px 4px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        .more-sheet-item:active {
+            transform: scale(0.92);
+            background: rgba(249,115,22,0.06);
+        }
+        .more-sheet-item.active {
+            color: #f97316;
+            background: rgba(249,115,22,0.08);
+        }
+        .more-sheet-item .more-icon {
+            width: 44px; height: 44px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            transition: all 0.15s ease;
+            color: #64748b;
+        }
+        .dark .more-sheet-item .more-icon { background: #2d1a08; color: #fbbf24; }
+        .more-sheet-item.active .more-icon {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(249,115,22,0.3);
+        }
+        .more-sheet-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 12px 4px 6px;
+        }
+
+        /* Hide top-tab-nav and bottom sheet on desktop */
+        @media (min-width: 769px) {
+            .top-tab-nav { display: none !important; }
+            .more-sheet, .more-sheet-overlay { display: none !important; }
+        }
+        /* Smaller phones: tighten tab spacing so all 6 chips fit */
+        @media (max-width: 380px) {
+            .top-tab-item {
+                padding: 0 8px;
+                font-size: 11px;
+                gap: 3px;
+            }
+            .top-tab-item svg { width: 15px; height: 15px; }
+        }
+
         /* Gradient button */
         .btn-gradient {
             background: linear-gradient(135deg, #f97316, #ea580c);
@@ -3498,6 +3671,103 @@
                     {label && <p className="text-xs font-semibold text-slate-700 mt-1.5">{label}</p>}
                     {sublabel && <p className="text-[10px] text-slate-400">{sublabel}</p>}
                 </div>
+            );
+        };
+
+        // ========================================
+        // TopTabNav (Mobile primary tabs with sliding underline)
+        // ========================================
+        // Renders a fixed top tab bar on mobile (under the header).
+        // Shows the 5 primaryTabs always-visible; the 6th button opens
+        // the "more" bottom sheet for secondary nav items. The active
+        // underline animates between buttons via useLayoutEffect, which
+        // measures each button's geometry post-render so it slides
+        // smoothly rather than teleporting via a CSS pseudo-element.
+        const TopTabNav = ({ primaryTabs, currentView, setCurrentView, setMoreMenuOpen, moreMenuOpen }) => {
+            const containerRef = useRef(null);
+            const tabRefs = useRef({});
+            const [indicator, setIndicator] = useState({ left: 0, width: 0, visible: false });
+
+            // Determine which tab is active. Anything not in primaryTabs is the "more" bucket.
+            const activeKey = useMemo(() => {
+                const primary = primaryTabs.find(t =>
+                    currentView === t.id ||
+                    // 'treatment' tab covers both treatment-report and posture sub-views
+                    (t.id === 'treatment' && (currentView === 'treatment-report' || currentView === 'posture'))
+                );
+                return primary ? primary.id : '__more__';
+            }, [primaryTabs, currentView]);
+
+            // Recompute underline position after layout. Width is fixed at 28px
+            // and centered under the active tab; this keeps the bar visually
+            // independent from the tab text length.
+            const recomputeIndicator = useCallback(() => {
+                const btn = tabRefs.current[activeKey];
+                const container = containerRef.current;
+                if (!btn || !container) return;
+                const btnRect = btn.getBoundingClientRect();
+                const contRect = container.getBoundingClientRect();
+                const underlineWidth = 28;
+                const left = btnRect.left - contRect.left + (btnRect.width - underlineWidth) / 2;
+                setIndicator({ left, width: underlineWidth, visible: true });
+            }, [activeKey]);
+
+            useLayoutEffect(() => { recomputeIndicator(); }, [recomputeIndicator]);
+            useEffect(() => {
+                window.addEventListener('resize', recomputeIndicator);
+                return () => window.removeEventListener('resize', recomputeIndicator);
+            }, [recomputeIndicator]);
+
+            const goTo = (tabId) => {
+                setCurrentView(tabId);
+                setMoreMenuOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            return (
+                <nav className="top-tab-nav hide-desktop" role="tablist" aria-label="主要メニュー">
+                    <div className="top-tab-nav-inner" ref={containerRef}>
+                        {primaryTabs.map((tab) => {
+                            const isActive = activeKey === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    ref={(el) => { tabRefs.current[tab.id] = el; }}
+                                    onClick={() => goTo(tab.id)}
+                                    className={`top-tab-item ${isActive ? 'active' : ''}`}
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    aria-controls={`view-${tab.id}`}
+                                >
+                                    <Icon name={tab.icon} size={17} />
+                                    <span>{tab.label}</span>
+                                </button>
+                            );
+                        })}
+                        <button
+                            ref={(el) => { tabRefs.current['__more__'] = el; }}
+                            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                            className={`top-tab-item ${activeKey === '__more__' ? 'active' : ''}`}
+                            role="tab"
+                            aria-selected={activeKey === '__more__'}
+                            aria-haspopup="menu"
+                            aria-expanded={moreMenuOpen}
+                            aria-label="その他のメニューを開く"
+                        >
+                            <Icon name="grid" size={17} />
+                            <span>その他</span>
+                        </button>
+                        <span
+                            className="top-tab-underline"
+                            style={{
+                                left: `${indicator.left}px`,
+                                width: `${indicator.width}px`,
+                                opacity: indicator.visible ? 1 : 0,
+                            }}
+                            aria-hidden="true"
+                        />
+                    </div>
+                </nav>
             );
         };
 
@@ -10714,6 +10984,10 @@
             const [selectedStore, setSelectedStore] = useState('all');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             const [isDarkMode, setIsDarkMode] = useState(false);
+            // Mobile bottom-sheet "more" menu state. Auto-closes whenever
+            // the active view changes (handled below) so the user always
+            // returns to the new view without a stale overlay on top.
+            const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
             const isStaffMode = !!currentAccess;
             const [activeStoreId, setActiveStoreId] = useState(
@@ -10761,6 +11035,10 @@
                 }
             }, [isDarkMode]);
 
+            // ビュー変更時に "もっと" メニューを自動的に閉じる。
+            // タップ → ナビ確定 → そのまま新しい画面が見える、という遷移にする。
+            useEffect(() => { setMoreMenuOpen(false); }, [currentView]);
+
             // プルトゥリフレッシュ
             const [pullState, setPullState] = useState({ pulling: false, refreshing: false, distance: 0 });
             const pullStartY = React.useRef(0);
@@ -10807,17 +11085,82 @@
                 };
             }, [pullState.distance, refreshReportData, refreshSquareData]);
 
+            // ============================================================
+            // ナビゲーション定義
+            // ============================================================
+            // 14項目をデスクトップサイドバーに表示。モバイルでは primaryTabs (5)
+            // が上タブバーに常時表示され、残りは「その他」ボトムシートに格納。
+            // marketing / settings は権限で制御（参考コードの方針を踏襲）。
             const navItems = [
-                { id: 'dashboard', label: 'ダッシュボード', icon: 'layout-dashboard', mobileLabel: 'ホーム' },
-                { id: 'reports', label: '日報一覧', icon: 'clipboard-list', mobileLabel: '日報' },
-                { id: 'members', label: '会員管理', icon: 'users', mobileLabel: '会員' },
-                { id: 'cashbook', label: '出納帳', icon: 'book-open', mobileLabel: '出納帳' },
-                { id: 'usage', label: '利用管理', icon: 'clipboard-check', mobileLabel: '利用' },
-                { id: 'tickets', label: '回数券', icon: 'ticket', mobileLabel: '回数券' },
-                { id: 'counseling', label: 'カウンセリング', icon: 'heart-handshake', mobileLabel: '案内' },
-                ...(!isStaffMode || (currentAccess && currentAccess.role === 'headquarter') ? [{ id: 'marketing', label: 'マーケティング', icon: 'megaphone', mobileLabel: '広告' }] : []),
-                ...(!isStaffMode ? [{ id: 'settings', label: '設定', icon: 'settings', mobileLabel: '設定' }] : []),
+                { id: 'dashboard',         label: 'ダッシュボード',  icon: 'layout-dashboard', mobileLabel: 'ホーム' },
+                { id: 'cashbook',          label: '出納帳',          icon: 'book-open',        mobileLabel: '出納帳' },
+                { id: 'counseling',        label: 'カウンセリング',  icon: 'heart-handshake',  mobileLabel: '案内' },
+                { id: 'treatment-report',  label: '施術レポート',    icon: 'file-heart',       mobileLabel: 'レポ' },
+                { id: 'posture',           label: '姿勢分析',        icon: 'scan',             mobileLabel: '姿勢' },
+                { id: 'line',              label: 'LINEチャット',    icon: 'message-circle',   mobileLabel: 'LINE' },
+                { id: 'reports',           label: '日報一覧',        icon: 'clipboard-list',   mobileLabel: '日報' },
+                { id: 'members',           label: '会員管理',        icon: 'users',            mobileLabel: '会員' },
+                { id: 'attendance',        label: '勤怠管理',        icon: 'clock',            mobileLabel: '勤怠' },
+                { id: 'usage',             label: '利用管理',        icon: 'clipboard-check',  mobileLabel: '利用' },
+                { id: 'tickets',           label: '回数券',          icon: 'ticket',           mobileLabel: '回数券' },
+                ...(!isStaffMode || (currentAccess && currentAccess.role === 'headquarter')
+                    ? [{ id: 'marketing', label: 'マーケティング', icon: 'megaphone', mobileLabel: '広告' }]
+                    : []),
+                ...(!isStaffMode
+                    ? [{ id: 'settings', label: '設定', icon: 'settings', mobileLabel: '設定' }]
+                    : []),
             ];
+
+            // モバイル上タブ: 5 つの主要動線を常時表示。6 つ目の "その他" は TopTabNav
+            // 内部で固定ボタンとして自動付与される。
+            const primaryTabs = [
+                { id: 'dashboard',        label: 'ホーム',   icon: 'layout-dashboard' },
+                { id: 'cashbook',         label: '出納帳',   icon: 'book-open' },
+                { id: 'counseling',       label: '案内',     icon: 'heart-handshake' },
+                { id: 'treatment-report', label: 'レポ',     icon: 'file-heart' },
+                { id: 'line',             label: 'LINE',     icon: 'message-circle' },
+            ];
+
+            // "その他" ボトムシート: primaryTabs に含まれない 9 項目をセクション分け
+            // して並べる。各項目は navItems からフィルタしているので、権限制御が
+            // 自動的に伝わる（marketing / settings が消える状態が反映される）。
+            const moreMenuItems = useMemo(() => {
+                const primaryIds = new Set(primaryTabs.map(t => t.id));
+                const rest = navItems.filter(n => !primaryIds.has(n.id));
+                const inRest = (id) => rest.some(n => n.id === id);
+                const sections = [
+                    {
+                        section: '顧客管理',
+                        items: rest.filter(n => ['members', 'tickets', 'usage'].includes(n.id)),
+                    },
+                    {
+                        section: '業務管理',
+                        items: rest.filter(n => ['reports', 'attendance', 'posture'].includes(n.id)),
+                    },
+                ];
+                const adminItems = rest.filter(n => ['marketing', 'settings'].includes(n.id));
+                if (adminItems.length > 0) sections.push({ section: '管理者', items: adminItems });
+                return sections;
+            // primaryTabs / navItems are recomputed every render but their content
+            // is stable per role; recompute the menu on isStaffMode change.
+            }, [isStaffMode]);
+
+            // 未実装ビュー用のプレースホルダー。ナビは 14 項目化したが、
+            // LINE / 姿勢分析 / 施術レポート / 勤怠の本体実装は別ステップで行う。
+            // ここでは「準備中」UI を返してナビ全体が動作することを保証する。
+            const ComingSoon = ({ title, icon, description }) => (
+                <div className="max-w-xl mx-auto py-12 text-center animate-fade-in">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sise-100 to-sise-50 dark:from-sise-900/40 dark:to-sise-800/20 flex items-center justify-center mx-auto mb-5 shadow-sm">
+                        <Icon name={icon} size={28} className="text-sise-500" />
+                    </div>
+                    <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mb-2">{title}</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">{description}</p>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+                        <Icon name="hammer" size={14} />
+                        準備中の機能です
+                    </div>
+                </div>
+            );
 
             const renderView = () => {
                 switch (currentView) {
@@ -10841,6 +11184,18 @@
                         return <TicketManagementView ticketHook={ticketHook} />;
                     case 'counseling':
                         return <ConceptFormView counselingHook={counselingHook} activeStoreId={activeStoreId} memberData={memberData} />;
+                    case 'treatment-report':
+                        return <ComingSoon title="施術レポート" icon="file-heart"
+                            description="施術内容・スコア・宿題ストレッチをまとめてLINEで送れるレポート画面を準備中です。" />;
+                    case 'posture':
+                        return <ComingSoon title="姿勢分析" icon="scan"
+                            description="MediaPipe Pose を使って正面・側面・座位の姿勢スコアを自動算出する画面を準備中です。" />;
+                    case 'line':
+                        return <ComingSoon title="LINEチャット" icon="message-circle"
+                            description="お客様とのLINE会話・テンプレ・自動応答・配信を一括管理する画面を準備中です。" />;
+                    case 'attendance':
+                        return <ComingSoon title="勤怠管理" icon="clock"
+                            description="GPS / QRコードで出退勤を打刻し、月次勤怠を集計する画面を準備中です。" />;
                     case 'marketing':
                         // マーケティングは本部のみアクセス可
                         if (isStaffMode && (!currentAccess || currentAccess.role !== 'headquarter')) {
@@ -11044,40 +11399,72 @@
                         </div>
                     </aside>
 
-                    {/* Bottom Navigation (Mobile) - カウンセリング中は非表示 */}
-                    <nav className="bottom-nav hide-desktop" style={currentView === 'counseling' ? {display:'none'} : undefined}>
-                        <div
-                            ref={(el) => {
-                                if (el) {
-                                    const active = el.querySelector('.bottom-nav-item.active');
-                                    if (active) {
-                                        const scrollLeft = active.offsetLeft - (el.offsetWidth / 2) + (active.offsetWidth / 2);
-                                        el.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-                                    }
-                                }
-                            }}
-                            className="flex overflow-x-auto"
-                            style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch', scrollSnapType: 'x proximity'}}
-                        >
-                            <style>{`.bottom-nav div::-webkit-scrollbar { display: none; }`}</style>
-                            {navItems.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => { setCurrentView(item.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                                    className={`bottom-nav-item ${currentView === item.id ? 'active' : ''}`}
-                                >
-                                    <span className="nav-icon-wrap transition-all duration-300">
-                                        <Icon name={item.icon} size={20} />
-                                    </span>
-                                    <span className="mt-0.5 transition-all duration-200" style={{fontSize: '10px', fontWeight: currentView === item.id ? 700 : 500, letterSpacing: currentView === item.id ? '0.02em' : '0'}}>{item.mobileLabel}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </nav>
+                    {/* Top Tab Navigation (Mobile) - カウンセリング中は非表示。
+                        primaryTabs を sliding underline 付きで描画し、6 つ目の
+                        "その他" ボタンが下のボトムシートを開閉する。 */}
+                    {currentView !== 'counseling' && (
+                        <TopTabNav
+                            primaryTabs={primaryTabs}
+                            currentView={currentView}
+                            setCurrentView={setCurrentView}
+                            setMoreMenuOpen={setMoreMenuOpen}
+                            moreMenuOpen={moreMenuOpen}
+                        />
+                    )}
 
-                    {/* Main Content */}
-                    <main className={`min-h-screen relative z-10 transition-all duration-300 ${currentView === 'counseling' ? 'pt-14 md:pt-16' : 'lg:pl-56'}`} style={currentView !== 'counseling' ? {paddingTop: '98px'} : undefined}>
-                        <div className={`px-3 py-2 md:p-5 lg:p-8 max-w-7xl mx-auto ${currentView === 'counseling' ? 'pb-4' : 'pb-24 md:pb-8'}`}>
+                    {/* "More" Bottom Sheet (Mobile) - primaryTabs に含まれない
+                        navItems をセクション分けして表示。背景タップ or バー
+                        (handle) を下方向にドラッグして閉じる挙動は親でタップ閉じ
+                        のみサポート（ドラッグは将来追加）。 */}
+                    {moreMenuOpen && currentView !== 'counseling' && (
+                        <>
+                            <div className="more-sheet-overlay hide-desktop" onClick={() => setMoreMenuOpen(false)} />
+                            <div className="more-sheet hide-desktop" role="menu" aria-label="その他のメニュー">
+                                <div className="more-sheet-handle" />
+                                {moreMenuItems.map((group, gi) => (
+                                    <div key={gi}>
+                                        <div className="more-sheet-section-label">{group.section}</div>
+                                        <div className="more-sheet-grid">
+                                            {group.items.map(item => {
+                                                const isActive = currentView === item.id;
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        onClick={() => {
+                                                            setCurrentView(item.id);
+                                                            setMoreMenuOpen(false);
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                        className={`more-sheet-item ${isActive ? 'active' : ''}`}
+                                                        role="menuitem"
+                                                    >
+                                                        <span className="more-icon">
+                                                            <Icon name={item.icon} size={20} />
+                                                        </span>
+                                                        <span>{item.label}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Main Content
+                        モバイル: header(56px) + top-tab-nav(46px) = 102px の
+                        トップ余白。デスクトップは top-tab-nav が hidden なので
+                        header(64px) のみ。Tailwind の任意値クラス pt-[102px]
+                        と md:pt-16 で切り替える。 */}
+                    <main
+                        className={`min-h-screen relative z-10 transition-all duration-300 ${
+                            currentView === 'counseling'
+                                ? 'pt-14 md:pt-16'
+                                : 'pt-[102px] md:pt-16 lg:pl-56'
+                        }`}
+                    >
+                        <div className={`px-3 py-2 md:p-5 lg:p-8 max-w-7xl mx-auto ${currentView === 'counseling' ? 'pb-4' : 'pb-8'}`}>
                             <ViewTransition viewKey={currentView}>
                                 {renderView()}
                             </ViewTransition>
