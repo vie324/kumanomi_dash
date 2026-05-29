@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Member, Store } from "@/lib/types";
+import { getPermissionMatrix } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 
 const NAV = [
   { href: "/", label: "ダッシュボード" },
@@ -12,15 +14,24 @@ const NAV = [
   { href: "/members", label: "会員・回数券" },
 ];
 
-export default function AppHeader({
+export default async function AppHeader({
   member,
   store,
   active,
+  showAdmin,
 }: {
   member: Member;
   store: Store | null;
   active: string;
+  // 未指定なら権限マトリクスから自動判定（staff_admin を管理できるか）
+  showAdmin?: boolean;
 }) {
+  let admin = showAdmin;
+  if (admin === undefined) {
+    const matrix = await getPermissionMatrix();
+    admin = can(matrix, member, "staff_admin", "manage");
+  }
+  const nav = admin ? [...NAV, { href: "/admin/members", label: "権限管理" }] : NAV;
   return (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-100">
       <div className="max-w-5xl mx-auto px-4">
@@ -39,7 +50,7 @@ export default function AppHeader({
           </form>
         </div>
         <nav className="flex gap-1 -mb-px overflow-x-auto">
-          {NAV.map((n) => {
+          {nav.map((n) => {
             const isActive = active === n.href;
             return (
               <Link
