@@ -54,7 +54,9 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 3. `supabase/migrations/0003_cashbook.sql` … 出納帳（cashbook_entries テーブル + RLS）
 4. `supabase/migrations/0004_attendance.sql` … 勤怠（attendance_records テーブル + stores に lat/lng 追加 + RLS）
 5. `supabase/migrations/0005_members_tickets.sql` … 会員・回数券（customers / ticket_plans / customer_tickets / ticket_usages + RLS + 既定プラン）
-6. （任意）`supabase/seed.sql` … 成増店レコード
+6. `supabase/migrations/0006_rbac.sql` … 権限基盤（departments / members.scope・department_id / member_store_access / role_permissions + 既定マトリクス）
+7. `supabase/migrations/0007_rls_enforcement.sql` … RLS強化（役割・スコープ・担当店舗に基づくポリシーへ置換）
+8. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -119,7 +121,7 @@ npm run dev
 > update public.members set role = 'owner', scope = 'all' where email = 'hino@kumanomi-narimasu.jp';
 > -- ↑ 管理者にしたいメンバーのメールに置き換え
 > ```
-> 現状は Phase A/B/C（基盤＋管理UI＋アプリ層ガード）まで実装済み。各ページはログインメンバーの権限に応じて、ナビ表示・閲覧/編集の可否・データのスコープ（全社/部門/担当店舗/自店/自分）を制御します。残るは DBレベルの RLS 強化（Phase D）です。
+> Phase A〜D まで実装済み。アプリ層（ナビ・ページ・スコープ）に加え、**Supabase の RLS でDBレベルでも権限・スコープを強制**します（`0007_rls_enforcement.sql`）。役割・スコープ（全社/部門/担当店舗/自店/自分）に基づき、閲覧は `view` 以上、書き込みは `edit` 以上、スタッフの日報は自分のもののみ。管理操作はサーバー側（service role）経由で実行されます。
 
 ### 日報入力 → AIフィードバックの流れ
 
