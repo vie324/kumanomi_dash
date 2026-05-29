@@ -106,6 +106,20 @@ npm run dev
 | `/posture` | 姿勢分析（カメラ＋MediaPipe Poseで正面/側面のスコア算出・Before/After比較・画像保存） |
 | `/report-card` | 施術レポート（カード型レポート作成・PNG書き出し） |
 | `/members` | 会員・回数券管理（会員名簿・回数券プラン・回数券の発行/消化・KPI） |
+| `/admin/members` | 権限管理：スタッフごとの役割・データ範囲・担当店舗の割当（staff_admin=管理 のみ） |
+| `/admin/roles` | 権限管理：役割×機能の権限マトリクス編集（なし/閲覧/編集/管理） |
+
+> ## 権限管理（RBAC）について
+>
+> 役割は **全体管理者(owner) / 部門管理者(dept_manager) / マネージャー(manager) / 店長(store_manager) / スタッフ(staff)** の5種。
+> 役割×機能の操作レベル（なし/閲覧/編集/管理）は `/admin/roles` で、各スタッフの役割・データ範囲・担当店舗は `/admin/members` で設定します（`staff_admin` を「管理」できる役割のみアクセス可）。
+>
+> **初回は管理者(owner)を1名指定してください**（シードの5名は既定で `staff`）。Supabase SQL Editor で:
+> ```sql
+> update public.members set role = 'owner', scope = 'all' where email = 'hino@kumanomi-narimasu.jp';
+> -- ↑ 管理者にしたいメンバーのメールに置き換え
+> ```
+> 現状は Phase A/B（基盤＋管理UI）まで。各画面での実際の表示/編集制限（Phase C）とDBレベルのRLS強化（Phase D）は後続です。
 
 ### 日報入力 → AIフィードバックの流れ
 
