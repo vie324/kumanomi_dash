@@ -53,7 +53,8 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 2. `supabase/migrations/0002_report_redesign.sql` … 日報項目リニューアル（次回予約数・2回目予約数・契約内容・振り返り/明日の行動）
 3. `supabase/migrations/0003_cashbook.sql` … 出納帳（cashbook_entries テーブル + RLS）
 4. `supabase/migrations/0004_attendance.sql` … 勤怠（attendance_records テーブル + stores に lat/lng 追加 + RLS）
-5. （任意）`supabase/seed.sql` … 成増店レコード
+5. `supabase/migrations/0005_members_tickets.sql` … 会員・回数券（customers / ticket_plans / customer_tickets / ticket_usages + RLS + 既定プラン）
+6. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -102,6 +103,9 @@ npm run dev
 | `/reports` | 日報一覧 |
 | `/cashbook` | 出納帳（入金/出金の記帳・現金残高・レジ金チェック・月間/カテゴリ別集計） |
 | `/attendance` | 勤怠管理（出退勤打刻・GPS位置確認・月次履歴/勤務時間集計） |
+| `/posture` | 姿勢分析（カメラ＋MediaPipe Poseで正面/側面のスコア算出・Before/After比較・画像保存） |
+| `/report-card` | 施術レポート（カード型レポート作成・PNG書き出し） |
+| `/members` | 会員・回数券管理（会員名簿・回数券プラン・回数券の発行/消化・KPI） |
 
 ### 日報入力 → AIフィードバックの流れ
 
