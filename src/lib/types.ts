@@ -87,6 +87,61 @@ export type AiFeedback = {
   created_at: string;
 };
 
+// ============================================================
+// 出納帳
+// ============================================================
+export type CashEntryType = "income" | "expense";
+export type PaymentMethod = "CASH" | "QR" | "CARD" | "SQUARE" | "TRANSFER";
+
+export type CashbookEntry = {
+  id: string;
+  store_id: string;
+  member_id: string | null;
+  entry_date: string; // YYYY-MM-DD
+  type: CashEntryType;
+  category: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  description: string | null;
+  customer_name: string | null;
+  treatment_count: number;
+  recorder: string | null;
+  notes: string | null;
+  is_cash_check: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export const INCOME_CATEGORIES = [
+  "施術売上",
+  "サブスク月額",
+  "回数券販売",
+  "物販",
+  "その他収入",
+];
+export const EXPENSE_CATEGORIES = [
+  "家賃",
+  "水道光熱費",
+  "消耗品",
+  "広告費",
+  "人件費",
+  "設備",
+  "交通費",
+  "その他経費",
+];
+
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string; short: string }[] = [
+  { value: "CASH", label: "現金", short: "現金" },
+  { value: "QR", label: "QR決済", short: "QR" },
+  { value: "CARD", label: "カード", short: "ｶｰﾄﾞ" },
+  { value: "SQUARE", label: "Square", short: "Sq" },
+  { value: "TRANSFER", label: "振込", short: "振込" },
+];
+
+export function paymentMethodLabel(m: PaymentMethod): string {
+  return PAYMENT_METHODS.find((p) => p.value === m)?.short || "現金";
+}
+
 // 予約転換率（%）
 export function reservationRate(report: DailyReport): number {
   return report.existing_treatments > 0

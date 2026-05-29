@@ -51,7 +51,8 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 
 1. `supabase/migrations/0001_init.sql` … テーブル / ビュー / RLS
 2. `supabase/migrations/0002_report_redesign.sql` … 日報項目リニューアル（次回予約数・2回目予約数・契約内容・振り返り/明日の行動）
-3. （任意）`supabase/seed.sql` … 成増店レコード
+3. `supabase/migrations/0003_cashbook.sql` … 出納帳（cashbook_entries テーブル + RLS）
+4. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -98,6 +99,7 @@ npm run dev
 | `/` | 今月のダッシュボード（売上目標進捗・新規/契約・メンバー別成績・推移グラフ） |
 | `/reports/new` | 日報入力（売上 / 施術数(既存)→次回予約数 / 新規数→2回目予約数 / 新規のお客様ごとの契約記録(回数券・定額)・理由 / 今日の振り返り / 明日の行動）＋AIフィードバック |
 | `/reports` | 日報一覧 |
+| `/cashbook` | 出納帳（入金/出金の記帳・現金残高・レジ金チェック・月間/カテゴリ別集計） |
 
 ### 日報入力 → AIフィードバックの流れ
 

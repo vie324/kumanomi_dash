@@ -5,6 +5,7 @@ const NAV = [
   { href: "/", label: "ダッシュボード" },
   { href: "/reports/new", label: "日報入力" },
   { href: "/reports", label: "日報一覧" },
+  { href: "/cashbook", label: "出納帳" },
 ];
 
 export default function AppHeader({
