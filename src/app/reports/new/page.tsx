@@ -1,15 +1,18 @@
-import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadPageAccess } from "@/lib/admin-guard";
+import { canEdit } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import ReportForm from "@/components/ReportForm";
 import type { Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewReportPage() {
-  const member = await getCurrentMember();
-  if (!member) return <NoAccess />;
+  const access = await loadPageAccess("daily_reports");
+  if (!access.member) return <NoAccess />;
+  const { member, matrix } = access;
 
   const supabase = createClient();
   const { data: store } = await supabase
@@ -17,6 +20,11 @@ export default async function NewReportPage() {
     .select("*")
     .eq("id", member.store_id)
     .maybeSingle();
+
+  // 日報入力は編集権限が必要
+  if (!canEdit(matrix, member, "daily_reports")) {
+    return <PermissionDenied member={member} store={(store as Store) ?? null} message="日報を入力する権限がありません。" />;
+  }
 
   return (
     <>

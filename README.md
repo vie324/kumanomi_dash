@@ -119,7 +119,7 @@ npm run dev
 > update public.members set role = 'owner', scope = 'all' where email = 'hino@kumanomi-narimasu.jp';
 > -- ↑ 管理者にしたいメンバーのメールに置き換え
 > ```
-> 現状は Phase A/B（基盤＋管理UI）まで。各画面での実際の表示/編集制限（Phase C）とDBレベルのRLS強化（Phase D）は後続です。
+> 現状は Phase A/B/C（基盤＋管理UI＋アプリ層ガード）まで実装済み。各ページはログインメンバーの権限に応じて、ナビ表示・閲覧/編集の可否・データのスコープ（全社/部門/担当店舗/自店/自分）を制御します。残るは DBレベルの RLS 強化（Phase D）です。
 
 ### 日報入力 → AIフィードバックの流れ
 

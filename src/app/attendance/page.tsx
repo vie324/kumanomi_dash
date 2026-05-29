@@ -1,7 +1,8 @@
-import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadPageAccess } from "@/lib/admin-guard";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import AttendanceView from "@/components/AttendanceView";
 import type { AttendanceRecord, Member, Store } from "@/lib/types";
 
@@ -17,8 +18,9 @@ function todayJST(): string {
 }
 
 export default async function AttendancePage() {
-  const member = await getCurrentMember();
-  if (!member) return <NoAccess />;
+  const access = await loadPageAccess("attendance");
+  if (!access.member) return <NoAccess />;
+  const { member } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -27,6 +29,10 @@ export default async function AttendancePage() {
     .eq("id", member.store_id)
     .maybeSingle();
   const store = (storeRow as Store) ?? null;
+
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="勤怠の閲覧権限がありません。" />;
+  }
 
   const today = todayJST();
   const monthStart = today.slice(0, 7) + "-01";

@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadPageAccess } from "@/lib/admin-guard";
+import { isOwnOnly } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import { type DailyReport, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -12,23 +14,39 @@ function yen(n: number): string {
 }
 
 export default async function ReportsListPage() {
-  const member = await getCurrentMember();
-  if (!member) return <NoAccess />;
+  const access = await loadPageAccess("daily_reports");
+  if (!access.member) return <NoAccess />;
+  const { member, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase.from("stores").select("*").eq("id", member.store_id).maybeSingle();
   const store = (storeRow as Store) ?? null;
 
-  const { data: membersRows } = await supabase.from("members").select("*").eq("store_id", member.store_id);
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="日報の閲覧権限がありません。" />;
+  }
+
+  // スタッフは自分の日報のみ。それ以外はスコープ内の店舗。
+  const ownOnly = isOwnOnly(member, "daily_reports");
+  const scopeStoreIds = storeIds ?? null;
+
+  let membersQuery = supabase.from("members").select("*");
+  if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
+  const { data: membersRows } = await membersQuery;
   const members = (membersRows as Member[]) || [];
   const memberName = (id: string) => members.find((m) => m.id === id)?.name || "—";
 
-  const { data: reportRows } = await supabase
+  let reportsQuery = supabase
     .from("daily_reports")
     .select("*")
-    .eq("store_id", member.store_id)
     .order("report_date", { ascending: false })
     .limit(120);
+  if (ownOnly) {
+    reportsQuery = reportsQuery.eq("member_id", member.id);
+  } else if (scopeStoreIds) {
+    reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
+  }
+  const { data: reportRows } = await reportsQuery;
   const reports = (reportRows as DailyReport[]) || [];
 
   // 契約(won)件数を report ごとに集計

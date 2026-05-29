@@ -1,17 +1,18 @@
 import Link from "next/link";
 import type { Member, Store } from "@/lib/types";
 import { getPermissionMatrix } from "@/lib/auth";
-import { can } from "@/lib/permissions";
+import { can, canEdit, type Resource } from "@/lib/permissions";
 
-const NAV = [
-  { href: "/", label: "ダッシュボード" },
-  { href: "/reports/new", label: "日報入力" },
-  { href: "/reports", label: "日報一覧" },
-  { href: "/cashbook", label: "出納帳" },
-  { href: "/attendance", label: "勤怠" },
-  { href: "/posture", label: "姿勢分析" },
-  { href: "/report-card", label: "施術レポート" },
-  { href: "/members", label: "会員・回数券" },
+// nav 項目ごとに、表示に必要な閲覧リソースを紐付け
+const NAV: { href: string; label: string; resource: Resource; needEdit?: boolean }[] = [
+  { href: "/", label: "ダッシュボード", resource: "dashboard" },
+  { href: "/reports/new", label: "日報入力", resource: "daily_reports", needEdit: true },
+  { href: "/reports", label: "日報一覧", resource: "daily_reports" },
+  { href: "/cashbook", label: "出納帳", resource: "cashbook" },
+  { href: "/attendance", label: "勤怠", resource: "attendance" },
+  { href: "/posture", label: "姿勢分析", resource: "posture" },
+  { href: "/report-card", label: "施術レポート", resource: "report_card" },
+  { href: "/members", label: "会員・回数券", resource: "members" },
 ];
 
 export default async function AppHeader({
@@ -26,12 +27,14 @@ export default async function AppHeader({
   // 未指定なら権限マトリクスから自動判定（staff_admin を管理できるか）
   showAdmin?: boolean;
 }) {
-  let admin = showAdmin;
-  if (admin === undefined) {
-    const matrix = await getPermissionMatrix();
-    admin = can(matrix, member, "staff_admin", "manage");
-  }
-  const nav = admin ? [...NAV, { href: "/admin/members", label: "権限管理" }] : NAV;
+  const matrix = await getPermissionMatrix();
+  const admin = showAdmin ?? can(matrix, member, "staff_admin", "manage");
+
+  // 権限のあるタブだけ表示（編集が必要な項目は edit 権限で判定）
+  const visibleNav = NAV.filter((n) =>
+    n.needEdit ? canEdit(matrix, member, n.resource) : can(matrix, member, n.resource, "view")
+  );
+  const nav = admin ? [...visibleNav, { href: "/admin/members", label: "権限管理" }] : visibleNav;
   return (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-100">
       <div className="max-w-5xl mx-auto px-4">

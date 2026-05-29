@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadPageAccess } from "@/lib/admin-guard";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import DashboardCharts from "@/components/DashboardCharts";
 import { type DailyReport, type Member, type Store } from "@/lib/types";
 
@@ -45,8 +46,9 @@ function Kpi({
 }
 
 export default async function DashboardPage() {
-  const member = await getCurrentMember();
-  if (!member) return <NoAccess />;
+  const access = await loadPageAccess("dashboard");
+  if (!access.member) return <NoAccess />;
+  const { member, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -56,19 +58,25 @@ export default async function DashboardPage() {
     .maybeSingle();
   const store = (storeRow as Store) ?? null;
 
-  const { data: membersRows } = await supabase
-    .from("members")
-    .select("*")
-    .eq("store_id", member.store_id)
-    .eq("active", true);
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="ダッシュボードの閲覧権限がありません。" />;
+  }
+
+  // スコープ内の店舗に限定（storeIds が null なら全店舗）
+  const scopeStoreIds = storeIds ?? null;
+
+  let membersQuery = supabase.from("members").select("*").eq("active", true);
+  if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
+  const { data: membersRows } = await membersQuery;
   const members = (membersRows as Member[]) || [];
 
-  const { data: reportRows } = await supabase
+  let reportsQuery = supabase
     .from("daily_reports")
     .select("*")
-    .eq("store_id", member.store_id)
     .gte("report_date", monthStartJST())
     .order("report_date", { ascending: true });
+  if (scopeStoreIds) reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
+  const { data: reportRows } = await reportsQuery;
   const reports = (reportRows as DailyReport[]) || [];
 
   // 契約数（won）は contract_memos から集計

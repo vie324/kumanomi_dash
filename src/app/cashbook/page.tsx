@@ -1,15 +1,17 @@
-import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { loadPageAccess } from "@/lib/admin-guard";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import CashbookView from "@/components/CashbookView";
 import type { CashbookEntry, Member, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function CashbookPage() {
-  const member = await getCurrentMember();
-  if (!member) return <NoAccess />;
+  const access = await loadPageAccess("cashbook");
+  if (!access.member) return <NoAccess />;
+  const { member, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -19,13 +21,18 @@ export default async function CashbookPage() {
     .maybeSingle();
   const store = (storeRow as Store) ?? null;
 
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="出納帳の閲覧権限がありません。" />;
+  }
+
   // 現金残高は全期間必要なので店舗の全エントリを取得（トライアル規模では十分）
-  const { data: entryRows } = await supabase
+  let entriesQuery = supabase
     .from("cashbook_entries")
     .select("*")
-    .eq("store_id", member.store_id)
     .order("entry_date", { ascending: false })
     .order("created_at", { ascending: false });
+  if (storeIds) entriesQuery = entriesQuery.in("store_id", storeIds);
+  const { data: entryRows } = await entriesQuery;
   const entries = (entryRows as CashbookEntry[]) || [];
 
   return (
