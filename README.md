@@ -1,0 +1,118 @@
+# くまのみ整体院 経営ダッシュボード
+
+整体院グループの総合ダッシュボード。**Next.js (App Router) + Supabase + Vercel** 構成へ移行中。
+
+現在は **Phase 1: 成増店トライアル**（日報入力・売上/成績追跡・契約メモ・AIフィードバック）を実装しています。
+
+- 旧ダッシュボード（単一HTML / GASバックエンド）は `legacy/index.html` に退避しています。移行計画は [`MIGRATION.md`](./MIGRATION.md)、旧コードのエラー見直し結果は [`REVIEW.md`](./REVIEW.md) を参照。
+
+---
+
+## 技術構成
+
+| 項目 | 内容 |
+| --- | --- |
+| フロント / API | Next.js 14 (App Router, TypeScript) |
+| DB / 認証 | Supabase (Postgres + Auth + RLS) |
+| AI | Anthropic Claude (`claude-sonnet-4-6`) |
+| ホスティング | Vercel |
+| グラフ | Recharts |
+
+---
+
+## セットアップ
+
+### 1. 依存関係
+
+```bash
+npm install
+```
+
+### 2. 環境変数
+
+`.env.example` をコピーして `.env.local` を作成し、値を設定します。
+
+```bash
+cp .env.example .env.local
+```
+
+| 変数 | 用途 |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクト URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key（公開可・RLSで保護） |
+| `SUPABASE_SERVICE_ROLE_KEY` | service role key（**サーバー専用・非公開**） |
+| `ANTHROPIC_API_KEY` | Claude APIキー |
+| `ANTHROPIC_MODEL` | 任意。既定 `claude-sonnet-4-6` |
+| `SEED_DEFAULT_PASSWORD` | シード用の初期パスワード |
+
+### 3. データベース初期化
+
+Supabase Dashboard → **SQL Editor** で以下を順に実行します。
+
+1. `supabase/migrations/0001_init.sql` … テーブル / ビュー / RLS
+2. （任意）`supabase/seed.sql` … 成増店レコード
+
+### 4. メンバー（5名）の作成
+
+Auth ユーザーと `members` 行をまとめて作成します。
+
+```bash
+npm run seed:members
+```
+
+作成されるアカウント（初期パスワードは `SEED_DEFAULT_PASSWORD`）:
+
+| 氏名 | メール |
+| --- | --- |
+| 日野碧人 | hino@kumanomi-narimasu.jp |
+| 宮本渚朗 | miyamoto@kumanomi-narimasu.jp |
+| 大野愛夏 | ohno@kumanomi-narimasu.jp |
+| 永井諒 | nagai@kumanomi-narimasu.jp |
+| 高山大志 | takayama@kumanomi-narimasu.jp |
+
+> メールアドレスはダミーです。実際の運用に合わせて `scripts/seed-members.mjs` の `MEMBERS` を編集するか、Supabase Dashboard で変更してください。
+
+### 5. ローカル起動
+
+```bash
+npm run dev
+# http://localhost:3000
+```
+
+### 6. Vercel デプロイ
+
+1. Vercel に本リポジトリをインポート（フレームワークは自動で Next.js を検出）
+2. 上記の環境変数を Vercel のプロジェクト設定に登録
+3. デプロイ
+
+`GET /api/health` で環境変数の設定状況を確認できます。
+
+---
+
+## 主な画面
+
+| パス | 内容 |
+| --- | --- |
+| `/login` | ログイン |
+| `/` | 今月のダッシュボード（売上目標進捗・新規/契約・メンバー別成績・推移グラフ） |
+| `/reports/new` | 日報入力（売上・チャネル別新規/契約・既存施術・業務チェック・契約メモ・所感）＋AIフィードバック |
+| `/reports` | 日報一覧 |
+
+### 日報入力 → AIフィードバックの流れ
+
+1. その日の売上・新規/契約・既存施術を入力
+2. 契約が取れた／取れなかったお客様ごとに「理由」「次回アクション」を記録
+3. **「保存してAIフィードバック」** を押すと、Claude が
+   - 総評 / 目標未達の原因分析 / 明日からの改善アクション / 振り返り
+   を生成し、`ai_feedback` テーブルに保存して表示します。
+
+---
+
+## スクリプト
+
+| コマンド | 内容 |
+| --- | --- |
+| `npm run dev` | 開発サーバー |
+| `npm run build` | 本番ビルド |
+| `npm run typecheck` | 型チェック |
+| `npm run seed:members` | 成増店メンバーのシード |
