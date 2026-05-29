@@ -7,6 +7,8 @@ export type Store = {
   daily_target_new: number;
   daily_target_contract: number;
   active: boolean;
+  lat: number | null;
+  lng: number | null;
 };
 
 export type Member = {
@@ -140,6 +142,38 @@ export const PAYMENT_METHODS: { value: PaymentMethod; label: string; short: stri
 
 export function paymentMethodLabel(m: PaymentMethod): string {
   return PAYMENT_METHODS.find((p) => p.value === m)?.short || "現金";
+}
+
+// ============================================================
+// 勤怠
+// ============================================================
+export type AttendanceRecord = {
+  id: string;
+  store_id: string;
+  member_id: string;
+  work_date: string; // YYYY-MM-DD
+  clock_in_at: string | null;
+  clock_out_at: string | null;
+  clock_in_lat: number | null;
+  clock_in_lng: number | null;
+  clock_out_lat: number | null;
+  clock_out_lng: number | null;
+  method: "gps" | "manual";
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// 2点間の距離（メートル, Haversine）
+export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.asin(Math.sqrt(a)));
 }
 
 // 予約転換率（%）
