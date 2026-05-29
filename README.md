@@ -102,6 +102,8 @@ npm run dev
 | `/reports` | 日報一覧 |
 | `/cashbook` | 出納帳（入金/出金の記帳・現金残高・レジ金チェック・月間/カテゴリ別集計） |
 | `/attendance` | 勤怠管理（出退勤打刻・GPS位置確認・月次履歴/勤務時間集計） |
+| `/posture` | 姿勢分析（カメラ＋MediaPipe Poseで正面/側面のスコア算出・Before/After比較・画像保存） |
+| `/report-card` | 施術レポート（カード型レポート作成・PNG書き出し） |
 
 ### 日報入力 → AIフィードバックの流れ
 
