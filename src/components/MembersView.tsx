@@ -43,11 +43,13 @@ export default function MembersView({
   initialCustomers,
   initialPlans,
   initialTickets,
+  canEdit = true,
 }: {
   member: Member;
   initialCustomers: Customer[];
   initialPlans: TicketPlan[];
   initialTickets: CustomerTicket[];
+  canEdit?: boolean;
 }) {
   const supabase = createClient();
   const [tab, setTab] = useState<Tab>("tickets");
@@ -330,7 +332,9 @@ export default function MembersView({
               <option value="expired">期限切れ</option>
               <option value="completed">消化済</option>
             </select>
-            <button className="btn-primary !py-2" onClick={() => setShowTicketForm((v) => !v)}>＋ 発行</button>
+            {canEdit && (
+              <button className="btn-primary !py-2" onClick={() => setShowTicketForm((v) => !v)}>＋ 発行</button>
+            )}
           </div>
 
           {showTicketForm && (
@@ -398,7 +402,9 @@ export default function MembersView({
                         {t.expiration_date && ` ・ 期限 ${t.expiration_date}`}
                       </p>
                     </div>
-                    <button className="text-xs text-slate-300 hover:text-rose-500 shrink-0" onClick={() => deleteTicket(t)}>削除</button>
+                    {canEdit && (
+                      <button className="text-xs text-slate-300 hover:text-rose-500 shrink-0" onClick={() => deleteTicket(t)}>削除</button>
+                    )}
                   </div>
 
                   <div className="mt-3 flex items-center gap-3">
@@ -410,8 +416,12 @@ export default function MembersView({
                         <div className="h-full bg-gradient-to-r from-sise-400 to-sise-600 rounded-full" style={{ width: pct + "%" }} />
                       </div>
                     </div>
-                    <button className="btn-ghost !py-1.5 !px-3 text-xs" onClick={() => undoSession(t)} disabled={busy || t.remaining_sessions >= t.total_sessions}>＋1戻す</button>
-                    <button className="btn-primary !py-1.5 !px-3 text-xs" onClick={() => useSession(t)} disabled={busy || t.remaining_sessions <= 0}>1回消化</button>
+                    {canEdit && (
+                      <>
+                        <button className="btn-ghost !py-1.5 !px-3 text-xs" onClick={() => undoSession(t)} disabled={busy || t.remaining_sessions >= t.total_sessions}>＋1戻す</button>
+                        <button className="btn-primary !py-1.5 !px-3 text-xs" onClick={() => useSession(t)} disabled={busy || t.remaining_sessions <= 0}>1回消化</button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -426,6 +436,7 @@ export default function MembersView({
       {/* ===== 会員名簿タブ ===== */}
       {tab === "customers" && (
         <div className="space-y-3">
+          {canEdit && (
           <div className="glass-card p-4">
             <h3 className="font-bold text-slate-800 mb-3">会員を追加</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -446,6 +457,7 @@ export default function MembersView({
               <button className="btn-primary !py-2" onClick={addCustomer} disabled={busy || !cForm.name.trim()}>追加</button>
             </div>
           </div>
+          )}
 
           <div className="glass-card overflow-hidden">
             <table className="w-full text-sm">
@@ -464,7 +476,9 @@ export default function MembersView({
                     <td className="py-2.5 px-3 text-slate-500">{c.phone || "—"}</td>
                     <td className="py-2.5 px-3 text-slate-400 text-xs">{c.note || ""}</td>
                     <td className="py-2.5 px-2 text-right">
-                      <button className="text-xs text-slate-300 hover:text-rose-500" onClick={() => deleteCustomer(c)}>削除</button>
+                      {canEdit && (
+                        <button className="text-xs text-slate-300 hover:text-rose-500" onClick={() => deleteCustomer(c)}>削除</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -480,6 +494,7 @@ export default function MembersView({
       {/* ===== プランタブ ===== */}
       {tab === "plans" && (
         <div className="space-y-3">
+          {canEdit && (
           <div className="glass-card p-4">
             <h3 className="font-bold text-slate-800 mb-3">プランを追加</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -504,6 +519,7 @@ export default function MembersView({
               <button className="btn-primary !py-2" onClick={addPlan} disabled={busy}>追加</button>
             </div>
           </div>
+          )}
 
           <div className="space-y-2">
             {plans.map((p) => (
@@ -512,7 +528,9 @@ export default function MembersView({
                   <span className="text-sm font-bold text-slate-800">{p.name}</span>
                   <p className="text-[11px] text-slate-400 mt-0.5">{p.sessions}回 ・ {yen(p.price)} ・ 有効{p.validity_days}日</p>
                 </div>
-                <button className="text-xs text-slate-300 hover:text-rose-500" onClick={() => deletePlan(p)}>削除</button>
+                {canEdit && (
+                  <button className="text-xs text-slate-300 hover:text-rose-500" onClick={() => deletePlan(p)}>削除</button>
+                )}
               </div>
             ))}
             {plans.length === 0 && (

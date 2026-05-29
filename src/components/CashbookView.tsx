@@ -59,10 +59,12 @@ export default function CashbookView({
   member,
   store,
   initialEntries,
+  canEdit = true,
 }: {
   member: Member;
   store: Store | null;
   initialEntries: CashbookEntry[];
+  canEdit?: boolean;
 }) {
   const supabase = createClient();
   const [entries, setEntries] = useState<CashbookEntry[]>(initialEntries);
@@ -256,30 +258,34 @@ export default function CashbookView({
           <h1 className="text-xl font-extrabold text-slate-900">出納帳</h1>
           <p className="text-xs text-slate-500">{store?.name}</p>
         </div>
-        <button
-          className="btn-primary !py-2"
-          onClick={() => {
-            resetForm();
-            setShowForm((v) => !v);
-          }}
-        >
-          ＋ 記帳する
-        </button>
+        {canEdit && (
+          <button
+            className="btn-primary !py-2"
+            onClick={() => {
+              resetForm();
+              setShowForm((v) => !v);
+            }}
+          >
+            ＋ 記帳する
+          </button>
+        )}
       </div>
 
       {/* 現金残高 */}
       <div className="rounded-2xl p-5 border-2 border-sise-200 bg-gradient-to-br from-sise-50 to-white">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-semibold text-sise-600">現金残高</span>
-          <button
-            className="text-[11px] bg-sise-100 text-sise-700 px-2.5 py-1 rounded-lg font-semibold hover:bg-sise-200 transition-colors"
-            onClick={() => {
-              setShowCashCheck(true);
-              setCashCheckAmount("");
-            }}
-          >
-            レジ金チェック
-          </button>
+          {canEdit && (
+            <button
+              className="text-[11px] bg-sise-100 text-sise-700 px-2.5 py-1 rounded-lg font-semibold hover:bg-sise-200 transition-colors"
+              onClick={() => {
+                setShowCashCheck(true);
+                setCashCheckAmount("");
+              }}
+            >
+              レジ金チェック
+            </button>
+          )}
         </div>
         <p className="text-3xl font-extrabold text-slate-800">{yen(cashBalance)}</p>
         <div className="flex gap-4 mt-2 text-xs">
@@ -522,10 +528,12 @@ export default function CashbookView({
                         >
                           {paymentMethodLabel(entry.payment_method)}
                         </span>
-                        <div className="md:opacity-0 md:group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                          <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400" onClick={() => startEdit(entry)}>編集</button>
-                          <button className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400" onClick={() => handleDelete(entry.id)}>削除</button>
-                        </div>
+                        {canEdit && (
+                          <div className="md:opacity-0 md:group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                            <button className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400" onClick={() => startEdit(entry)}>編集</button>
+                            <button className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400" onClick={() => handleDelete(entry.id)}>削除</button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

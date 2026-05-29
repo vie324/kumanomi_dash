@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadPageAccess } from "@/lib/admin-guard";
+import { canEdit } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function MembersPage() {
   const access = await loadPageAccess("members");
   if (!access.member) return <NoAccess />;
-  const { member, storeIds } = access;
+  const { member, matrix, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -52,6 +53,7 @@ export default async function MembersPage() {
           initialCustomers={(customers as Customer[]) || []}
           initialPlans={(plans as TicketPlan[]) || []}
           initialTickets={(tickets as CustomerTicket[]) || []}
+          canEdit={canEdit(matrix, member, "members")}
         />
       </main>
     </>

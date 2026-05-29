@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadPageAccess } from "@/lib/admin-guard";
+import { canEdit } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CashbookPage() {
   const access = await loadPageAccess("cashbook");
   if (!access.member) return <NoAccess />;
-  const { member, storeIds } = access;
+  const { member, matrix, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -39,7 +40,12 @@ export default async function CashbookPage() {
     <>
       <AppHeader member={member} store={store} active="/cashbook" />
       <main className="max-w-5xl mx-auto px-4 py-5">
-        <CashbookView member={member as Member} store={store} initialEntries={entries} />
+        <CashbookView
+          member={member as Member}
+          store={store}
+          initialEntries={entries}
+          canEdit={canEdit(matrix, member, "cashbook")}
+        />
       </main>
     </>
   );
