@@ -1,4 +1,4 @@
-import { getCurrentMember, getPermissionMatrix } from "./auth";
+import { getAccessibleStoreIds, getCurrentMember, getPermissionMatrix } from "./auth";
 import { can, type PermissionMatrix, type PermLevel, type Resource } from "./permissions";
 import type { Member } from "./types";
 
@@ -14,3 +14,27 @@ export async function requirePermission(
   if (!can(matrix, member, resource, level)) return null;
   return { member, matrix };
 }
+
+// ページ表示用ガード: ログイン + 閲覧権限 + アクセス可能店舗を一括で解決。
+// 返り値:
+//   member            … ログイン中メンバー（未ログインは null）
+//   matrix            … 権限マトリクス
+//   allowed           … resource を閲覧できるか
+//   storeIds          … アクセス可能店舗ID（null = 全店舗）
+export async function loadPageAccess(resource: Resource): Promise<
+  | { member: null }
+  | {
+      member: Member;
+      matrix: PermissionMatrix;
+      allowed: boolean;
+      storeIds: string[] | null;
+    }
+> {
+  const member = await getCurrentMember();
+  if (!member) return { member: null };
+  const matrix = await getPermissionMatrix();
+  const allowed = can(matrix, member, resource, "view");
+  const storeIds = await getAccessibleStoreIds(member);
+  return { member, matrix, allowed, storeIds };
+}
+
