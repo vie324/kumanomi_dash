@@ -19,56 +19,61 @@ export type Member = {
   active: boolean;
 };
 
-export type ChannelKey = "hpb" | "meta" | "referral" | "discount";
-
-export const CHANNELS: { key: ChannelKey; label: string }[] = [
-  { key: "hpb", label: "HPB" },
-  { key: "meta", label: "Meta広告" },
-  { key: "referral", label: "紹介" },
-  { key: "discount", label: "割引/その他" },
-];
-
+// 日報（新仕様）
 export type DailyReport = {
   id: string;
   store_id: string;
   member_id: string;
   report_date: string; // YYYY-MM-DD
-  revenue: number;
-  target_revenue: number;
 
-  hpb_new: number;
-  hpb_contract: number;
-  meta_new: number;
-  meta_contract: number;
-  referral_new: number;
-  referral_contract: number;
-  discount_new: number;
-  discount_contract: number;
+  revenue: number; // 売上
 
-  existing_treatments: number;
-  daily_tasks_completed: boolean;
-  tomorrow_prep_completed: boolean;
-  note: string | null;
+  existing_treatments: number; // 施術数（既存のみ・新患含めない）
+  next_reservations: number; // うち次回予約数
+
+  new_count: number; // 新規数
+  second_visit_reservations: number; // うち2回目予約につながった数
+
+  reflection: string | null; // 今日の振り返り
+  tomorrow_action: string | null; // 明日の行動
 
   created_at: string;
   updated_at: string;
 };
 
 export type ContractOutcome = "won" | "lost";
+export type ContractType = "ticket" | "subscription";
 
+// 新規のお客様ごとの契約記録
 export type ContractMemo = {
   id: string;
   report_id: string;
   store_id: string;
   member_id: string;
-  outcome: ContractOutcome;
-  channel: string | null;
+  outcome: ContractOutcome; // won=契約 / lost=未契約
+  contract_type: ContractType | null; // 回数券 / 定額（契約時のみ）
+  contract_plan: number | null; // 回数券:4/8/16/32  定額:月2/4/6/8
   customer_name: string | null;
   customer_attr: string | null;
-  reason: string | null;
-  next_action: string | null;
+  reason: string | null; // 取れた理由 / 取れなかった理由
   created_at: string;
 };
+
+// 契約プラン選択肢
+export const TICKET_PLANS = [4, 8, 16, 32]; // 回数券（回）
+export const SUBSCRIPTION_PLANS = [2, 4, 6, 8]; // 定額（月N回）
+
+export function contractTypeLabel(t: ContractType | null): string {
+  if (t === "ticket") return "回数券";
+  if (t === "subscription") return "定額";
+  return "";
+}
+
+export function contractLabel(m: Pick<ContractMemo, "contract_type" | "contract_plan">): string {
+  if (!m.contract_type || m.contract_plan == null) return "";
+  if (m.contract_type === "ticket") return `回数券${m.contract_plan}回`;
+  return `定額 月${m.contract_plan}回`;
+}
 
 export type AiFeedback = {
   id: string;
@@ -82,10 +87,14 @@ export type AiFeedback = {
   created_at: string;
 };
 
-// 集計ヘルパ
-export function totalNew(r: DailyReport): number {
-  return r.hpb_new + r.meta_new + r.referral_new + r.discount_new;
+// 予約転換率（%）
+export function reservationRate(report: DailyReport): number {
+  return report.existing_treatments > 0
+    ? (report.next_reservations / report.existing_treatments) * 100
+    : 0;
 }
-export function totalContract(r: DailyReport): number {
-  return r.hpb_contract + r.meta_contract + r.referral_contract + r.discount_contract;
+export function secondVisitRate(report: DailyReport): number {
+  return report.new_count > 0
+    ? (report.second_visit_reservations / report.new_count) * 100
+    : 0;
 }

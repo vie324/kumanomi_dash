@@ -3,7 +3,7 @@ import { getCurrentMember } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
-import { type DailyReport, type Member, type Store, totalContract, totalNew } from "@/lib/types";
+import { type DailyReport, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,20 @@ export default async function ReportsListPage() {
     .limit(120);
   const reports = (reportRows as DailyReport[]) || [];
 
+  // 契約(won)件数を report ごとに集計
+  const reportIds = reports.map((r) => r.id);
+  const wonByReport = new Map<string, number>();
+  if (reportIds.length > 0) {
+    const { data: memoRows } = await supabase
+      .from("contract_memos")
+      .select("report_id, outcome")
+      .in("report_id", reportIds)
+      .eq("outcome", "won");
+    for (const w of (memoRows as { report_id: string }[]) || []) {
+      wonByReport.set(w.report_id, (wonByReport.get(w.report_id) || 0) + 1);
+    }
+  }
+
   // AIフィードバック有無
   const { data: fbRows } = await supabase.from("ai_feedback").select("report_id");
   const fbSet = new Set((fbRows || []).map((f) => f.report_id as string));
@@ -52,9 +66,9 @@ export default async function ReportsListPage() {
                   <th className="py-3 px-3 font-semibold">日付</th>
                   <th className="py-3 px-3 font-semibold">担当</th>
                   <th className="py-3 px-2 font-semibold text-right">売上</th>
-                  <th className="py-3 px-2 font-semibold text-center">新規</th>
+                  <th className="py-3 px-2 font-semibold text-center">既存<br /><span className="font-normal text-slate-400">施術/予約</span></th>
+                  <th className="py-3 px-2 font-semibold text-center">新規<br /><span className="font-normal text-slate-400">数/2回目</span></th>
                   <th className="py-3 px-2 font-semibold text-center">契約</th>
-                  <th className="py-3 px-2 font-semibold text-center">既存</th>
                   <th className="py-3 px-2 font-semibold text-center">AI</th>
                 </tr>
               </thead>
@@ -64,9 +78,17 @@ export default async function ReportsListPage() {
                     <td className="py-3 px-3 text-slate-600">{r.report_date}</td>
                     <td className="py-3 px-3 font-semibold text-slate-700">{memberName(r.member_id)}</td>
                     <td className="py-3 px-2 text-right font-bold text-sise-600">{yen(Number(r.revenue))}</td>
-                    <td className="py-3 px-2 text-center text-blue-600 font-semibold">{totalNew(r)}</td>
-                    <td className="py-3 px-2 text-center text-emerald-600 font-semibold">{totalContract(r)}</td>
-                    <td className="py-3 px-2 text-center text-slate-500">{r.existing_treatments}</td>
+                    <td className="py-3 px-2 text-center text-slate-600">
+                      <span className="text-orange-600 font-semibold">{r.existing_treatments}</span>
+                      <span className="text-slate-300 mx-0.5">/</span>
+                      <span className="text-emerald-600 font-semibold">{r.next_reservations}</span>
+                    </td>
+                    <td className="py-3 px-2 text-center text-slate-600">
+                      <span className="text-blue-600 font-semibold">{r.new_count}</span>
+                      <span className="text-slate-300 mx-0.5">/</span>
+                      <span className="text-emerald-600 font-semibold">{r.second_visit_reservations}</span>
+                    </td>
+                    <td className="py-3 px-2 text-center text-emerald-600 font-bold">{wonByReport.get(r.id) || 0}</td>
                     <td className="py-3 px-2 text-center">
                       {fbSet.has(r.id) ? (
                         <span className="inline-block w-2 h-2 rounded-full bg-sise-500" title="AIフィードバック済み" />

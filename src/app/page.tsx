@@ -4,13 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import DashboardCharts from "@/components/DashboardCharts";
-import {
-  type DailyReport,
-  type Member,
-  type Store,
-  totalContract,
-  totalNew,
-} from "@/lib/types";
+import { type DailyReport, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +62,6 @@ export default async function DashboardPage() {
     .eq("store_id", member.store_id)
     .eq("active", true);
   const members = (membersRows as Member[]) || [];
-  const memberName = (id: string) => members.find((m) => m.id === id)?.name || "—";
 
   const { data: reportRows } = await supabase
     .from("daily_reports")
@@ -78,11 +71,32 @@ export default async function DashboardPage() {
     .order("report_date", { ascending: true });
   const reports = (reportRows as DailyReport[]) || [];
 
+  // 契約数（won）は contract_memos から集計
+  const reportIds = reports.map((r) => r.id);
+  let wonMemos: { report_id: string; member_id: string }[] = [];
+  if (reportIds.length > 0) {
+    const { data: memoRows } = await supabase
+      .from("contract_memos")
+      .select("report_id, member_id, outcome")
+      .in("report_id", reportIds)
+      .eq("outcome", "won");
+    wonMemos = (memoRows as { report_id: string; member_id: string }[]) || [];
+  }
+  const wonByReport = new Map<string, number>();
+  const wonByMember = new Map<string, number>();
+  for (const w of wonMemos) {
+    wonByReport.set(w.report_id, (wonByReport.get(w.report_id) || 0) + 1);
+    wonByMember.set(w.member_id, (wonByMember.get(w.member_id) || 0) + 1);
+  }
+
   // 集計
   const totalRevenue = reports.reduce((s, r) => s + Number(r.revenue || 0), 0);
-  const sumNew = reports.reduce((s, r) => s + totalNew(r), 0);
-  const sumContract = reports.reduce((s, r) => s + totalContract(r), 0);
+  const sumNew = reports.reduce((s, r) => s + (r.new_count || 0), 0);
+  const sumExisting = reports.reduce((s, r) => s + (r.existing_treatments || 0), 0);
+  const sumNextResv = reports.reduce((s, r) => s + (r.next_reservations || 0), 0);
+  const sumContract = wonMemos.length;
   const conversion = sumNew > 0 ? (sumContract / sumNew) * 100 : 0;
+  const resvRate = sumExisting > 0 ? (sumNextResv / sumExisting) * 100 : 0;
   const monthlyTarget = store?.monthly_target_revenue || 0;
   const progress = monthlyTarget > 0 ? Math.min(100, (totalRevenue / monthlyTarget) * 100) : 0;
 
@@ -91,12 +105,12 @@ export default async function DashboardPage() {
   for (const r of reports) {
     const cur = byDate.get(r.report_date) || { date: r.report_date, revenue: 0, new: 0, contract: 0 };
     cur.revenue += Number(r.revenue || 0);
-    cur.new += totalNew(r);
-    cur.contract += totalContract(r);
+    cur.new += r.new_count || 0;
+    cur.contract += wonByReport.get(r.id) || 0;
     byDate.set(r.report_date, cur);
   }
   const trend = Array.from(byDate.values()).map((d) => ({
-    date: d.date.slice(5), // MM-DD
+    date: d.date.slice(5),
     revenue: d.revenue,
     new: d.new,
     contract: d.contract,
@@ -110,8 +124,8 @@ export default async function DashboardPage() {
         id: m.id,
         name: m.name,
         revenue: rs.reduce((s, r) => s + Number(r.revenue || 0), 0),
-        new: rs.reduce((s, r) => s + totalNew(r), 0),
-        contract: rs.reduce((s, r) => s + totalContract(r), 0),
+        new: rs.reduce((s, r) => s + (r.new_count || 0), 0),
+        contract: wonByMember.get(m.id) || 0,
         count: rs.length,
       };
     })
@@ -132,9 +146,9 @@ export default async function DashboardPage() {
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi label="今月売上" value={yen(totalRevenue)} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} accent="text-sise-600" />
-          <Kpi label="新規" value={String(sumNew)} sub="今月合計" accent="text-blue-600" />
-          <Kpi label="契約" value={String(sumContract)} sub="今月合計" accent="text-emerald-600" />
-          <Kpi label="新規→契約率" value={`${conversion.toFixed(0)}%`} accent="text-purple-600" />
+          <Kpi label="新規" value={String(sumNew)} sub={`契約 ${sumContract} 件`} accent="text-blue-600" />
+          <Kpi label="新規→契約率" value={`${conversion.toFixed(0)}%`} accent="text-emerald-600" />
+          <Kpi label="次回予約率" value={`${resvRate.toFixed(0)}%`} sub={`既存 ${sumExisting} 件`} accent="text-purple-600" />
         </div>
 
         {/* 目標進捗 */}

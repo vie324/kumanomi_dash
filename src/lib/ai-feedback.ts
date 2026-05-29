@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { CHANNELS, type ContractMemo, type DailyReport, type Store } from "./types";
+import { contractLabel, type ContractMemo, type DailyReport, type Store } from "./types";
 
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
@@ -11,12 +11,14 @@ export type FeedbackResult = {
 };
 
 const SYSTEM_PROMPT = `あなたは整体院グループ「くまのみ整体院」の店舗運営をサポートする、経験豊富なマネージャー兼コーチです。
-スタッフが入力した日報・契約メモをもとに、その日の成績を振り返り、建設的なフィードバックを日本語で返します。
+スタッフが入力した日報・新規のお客様ごとの契約記録をもとに、その日の成績を振り返り、建設的なフィードバックを日本語で返します。
 
 重視する観点:
-- 売上・新規・契約が目標に届いているか。届いていない場合は「なぜ」を具体的に掘り下げる。
-- 契約が取れたお客様の成功要因、取れなかったお客様の原因を、メモから読み取って言語化する。
-- 精神論ではなく、明日から実行できる具体的な行動に落とし込む。
+- 売上・新規数・契約数が目標に届いているか。届いていない場合は「なぜ」を具体的に掘り下げる。
+- 既存のお客様の「次回予約率」、新規のお客様の「2回目予約への転換率」を、定着・リピートの観点で評価する。
+- 新規のお客様について、契約が取れた成功要因と、取れなかった原因を、記録された理由から読み取って言語化する。
+- 契約内容（回数券か定額か、プランの大きさ）の傾向にも触れ、より良い提案ができたか考える。
+- 精神論ではなく、明日から実行できる具体的な行動に落とし込む（本人が書いた「明日の行動」も踏まえて補強・修正する）。
 - スタッフが前向きに振り返れるよう、良かった点も必ず認める。
 
 出力は必ず次のJSON形式のみ（前後に説明文やマークダウンの\`\`\`は付けない）:
@@ -27,42 +29,41 @@ const SYSTEM_PROMPT = `あなたは整体院グループ「くまのみ整体院
   "encouragement": "前向きな振り返りの言葉（1〜2文）"
 }`;
 
-function sum(...ns: number[]) {
-  return ns.reduce((a, b) => a + (b || 0), 0);
-}
-
 export function buildUserPrompt(
   report: DailyReport,
   memos: ContractMemo[],
   store: Store | null,
   memberName: string
 ): string {
-  const totalNew = sum(report.hpb_new, report.meta_new, report.referral_new, report.discount_new);
-  const totalContract = sum(
-    report.hpb_contract,
-    report.meta_contract,
-    report.referral_contract,
-    report.discount_contract
-  );
-
-  const channelLines = CHANNELS.map((c) => {
-    const n = (report as unknown as Record<string, number>)[`${c.key}_new`] || 0;
-    const ct = (report as unknown as Record<string, number>)[`${c.key}_contract`] || 0;
-    return `  - ${c.label}: 新規 ${n} / 契約 ${ct}`;
-  }).join("\n");
-
   const won = memos.filter((m) => m.outcome === "won");
   const lost = memos.filter((m) => m.outcome === "lost");
 
-  const memoBlock = (label: string, list: ContractMemo[]) =>
-    list.length === 0
-      ? `  （記録なし）`
-      : list
+  const resvRate =
+    report.existing_treatments > 0
+      ? Math.round((report.next_reservations / report.existing_treatments) * 100)
+      : 0;
+  const secondRate =
+    report.new_count > 0
+      ? Math.round((report.second_visit_reservations / report.new_count) * 100)
+      : 0;
+
+  const wonBlock =
+    won.length === 0
+      ? "  （なし）"
+      : won
+          .map((m, i) => {
+            const plan = contractLabel(m);
+            return `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）${plan ? ` / 契約: ${plan}` : ""}\n     決め手: ${m.reason || "未記入"}`;
+          })
+          .join("\n");
+
+  const lostBlock =
+    lost.length === 0
+      ? "  （なし）"
+      : lost
           .map(
             (m, i) =>
-              `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"} / チャネル:${
-                m.channel || "不明"
-              }）\n     理由: ${m.reason || "未記入"}\n     次回: ${m.next_action || "未記入"}`
+              `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）\n     取れなかった理由: ${m.reason || "未記入"}`
           )
           .join("\n");
 
@@ -74,25 +75,28 @@ export function buildUserPrompt(
 
 ■ 売上
   本日売上: ${Number(report.revenue).toLocaleString()}円
-  本日目標: ${Number(report.target_revenue || 0).toLocaleString()}円
 ${target}
 
-■ 新規 / 契約（合計 新規 ${totalNew} / 契約 ${totalContract}）
-${channelLines}
-  既存(リピート)施術: ${report.existing_treatments}件
+■ 既存（リピート）
+  施術数（新患含めない）: ${report.existing_treatments}件
+  次回予約数: ${report.next_reservations}件（次回予約率 ${resvRate}%）
 
-■ 業務チェック
-  当日業務完了: ${report.daily_tasks_completed ? "はい" : "いいえ"}
-  翌日準備完了: ${report.tomorrow_prep_completed ? "はい" : "いいえ"}
+■ 新規
+  新規数: ${report.new_count}人
+  2回目予約につながった数: ${report.second_visit_reservations}人（転換率 ${secondRate}%）
+  契約: ${won.length}件 / 未契約: ${lost.length}件
 
-■ 本人の所感
-  ${report.note || "（未記入）"}
+■ 契約が取れた新規のお客様（${won.length}件）
+${wonBlock}
 
-■ 契約が取れたお客様（${won.length}件）
-${memoBlock("won", won)}
+■ 契約が取れなかった新規のお客様（${lost.length}件）
+${lostBlock}
 
-■ 契約が取れなかったお客様（${lost.length}件）
-${memoBlock("lost", lost)}
+■ 今日の振り返り（本人記入）
+  ${report.reflection || "（未記入）"}
+
+■ 明日の行動（本人記入）
+  ${report.tomorrow_action || "（未記入）"}
 
 以上の日報について、システムプロンプトのJSON形式でフィードバックしてください。`;
 }
@@ -128,13 +132,10 @@ export async function generateFeedback(args: {
   return { result, model, raw: msg };
 }
 
-// モデル出力からJSONを安全に取り出す
 export function parseFeedback(text: string): FeedbackResult {
   let jsonText = text;
-  // ```json ... ``` で囲まれていた場合に剥がす
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) jsonText = fence[1];
-  // 最初の { から最後の } までを抽出
   const start = jsonText.indexOf("{");
   const end = jsonText.lastIndexOf("}");
   if (start !== -1 && end !== -1) jsonText = jsonText.slice(start, end + 1);
@@ -148,12 +149,6 @@ export function parseFeedback(text: string): FeedbackResult {
       encouragement: String(obj.encouragement || ""),
     };
   } catch {
-    // パース失敗時は本文をそのまま総評に入れてフォールバック
-    return {
-      summary: text.slice(0, 800),
-      issues: "",
-      advice: "",
-      encouragement: "",
-    };
+    return { summary: text.slice(0, 800), issues: "", advice: "", encouragement: "" };
   }
 }
