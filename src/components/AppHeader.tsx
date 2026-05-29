@@ -9,6 +9,7 @@ const NAV = [
   { href: "/attendance", label: "勤怠" },
   { href: "/posture", label: "姿勢分析" },
   { href: "/report-card", label: "施術レポート" },
+  { href: "/members", label: "会員・回数券" },
 ];
 
 export default function AppHeader({

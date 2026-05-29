@@ -114,6 +114,65 @@ export type CashbookEntry = {
   updated_at: string;
 };
 
+// ============================================================
+// 会員・回数券
+// ============================================================
+export type Customer = {
+  id: string;
+  store_id: string;
+  name: string;
+  phone: string | null;
+  note: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TicketPlan = {
+  id: string;
+  store_id: string;
+  name: string;
+  sessions: number;
+  price: number;
+  validity_days: number;
+  active: boolean;
+  created_at: string;
+};
+
+export type CustomerTicket = {
+  id: string;
+  store_id: string;
+  customer_id: string | null;
+  plan_id: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  plan_name: string | null;
+  total_sessions: number;
+  remaining_sessions: number;
+  price: number;
+  purchase_date: string;
+  expiration_date: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TicketStatus = "active" | "expiring" | "expired" | "completed";
+
+export function ticketStatus(t: Pick<CustomerTicket, "remaining_sessions" | "expiration_date">): TicketStatus {
+  if (t.remaining_sessions <= 0) return "completed";
+  if (t.expiration_date) {
+    const days = Math.ceil((new Date(t.expiration_date).getTime() - Date.now()) / 86400000);
+    if (days < 0) return "expired";
+    if (days <= 30) return "expiring";
+  }
+  return "active";
+}
+
+export function ticketStatusLabel(s: TicketStatus): string {
+  return { active: "有効", expiring: "期限間近", expired: "期限切れ", completed: "消化済" }[s];
+}
+
 export const INCOME_CATEGORIES = [
   "施術売上",
   "サブスク月額",
