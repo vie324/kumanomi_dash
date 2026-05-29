@@ -9,7 +9,29 @@ export type Store = {
   active: boolean;
   lat: number | null;
   lng: number | null;
+  department_id: string | null;
 };
+
+export type Department = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+// 役割（強い順）: owner > dept_manager > manager > store_manager > staff
+export type Role = "owner" | "dept_manager" | "manager" | "store_manager" | "staff";
+// データ範囲
+export type Scope = "all" | "department" | "assigned" | "store" | "own";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  owner: "全体管理者",
+  dept_manager: "部門管理者",
+  manager: "マネージャー",
+  store_manager: "店長",
+  staff: "スタッフ",
+};
+
+export const ROLE_ORDER: Role[] = ["owner", "dept_manager", "manager", "store_manager", "staff"];
 
 export type Member = {
   id: string;
@@ -17,7 +39,9 @@ export type Member = {
   store_id: string;
   name: string;
   email: string | null;
-  role: "staff" | "manager" | "admin";
+  role: Role;
+  scope: Scope | null;
+  department_id: string | null;
   active: boolean;
 };
 
