@@ -77,11 +77,22 @@ export type ContractMemo = {
   store_id: string;
   member_id: string;
   outcome: ContractOutcome; // won=契約 / lost=未契約
+  channel: string | null; // 媒体名（media_channels.name を保存）
   contract_type: ContractType | null; // 回数券 / 定額（契約時のみ）
   contract_plan: number | null; // 回数券:4/8/16/32  定額:月2/4/6/8
   customer_name: string | null;
   customer_attr: string | null;
   reason: string | null; // 取れた理由 / 取れなかった理由
+  created_at: string;
+};
+
+// 媒体（集客チャネル）マスタ
+export type MediaChannel = {
+  id: string;
+  store_id: string | null;
+  name: string;
+  sort_order: number;
+  active: boolean;
   created_at: string;
 };
 

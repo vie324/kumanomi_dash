@@ -61,3 +61,51 @@ export async function setMemberStores(memberId: string, storeIds: string[]) {
   }
   revalidatePath("/admin/members");
 }
+
+// ------------------------------------------------------------
+// 媒体（集客チャネル）マスタ
+// ------------------------------------------------------------
+export async function addMediaChannel(args: { storeId: string; name: string }) {
+  await assertStaffAdmin();
+  const name = args.name.trim();
+  if (!name) throw new Error("媒体名を入力してください");
+  const admin = createAdminClient();
+  // 末尾の sort_order を計算
+  const { data: maxRow } = await admin
+    .from("media_channels")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = ((maxRow?.sort_order as number) ?? 0) + 1;
+  const { error } = await admin
+    .from("media_channels")
+    .insert({ store_id: args.storeId, name, sort_order: nextOrder, active: true });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/media");
+}
+
+export async function updateMediaChannel(args: {
+  id: string;
+  name?: string;
+  active?: boolean;
+  sortOrder?: number;
+}) {
+  await assertStaffAdmin();
+  const patch: Record<string, unknown> = {};
+  if (args.name !== undefined) patch.name = args.name.trim();
+  if (args.active !== undefined) patch.active = args.active;
+  if (args.sortOrder !== undefined) patch.sort_order = args.sortOrder;
+  const admin = createAdminClient();
+  const { error } = await admin.from("media_channels").update(patch).eq("id", args.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/media");
+}
+
+export async function deleteMediaChannel(id: string) {
+  await assertStaffAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin.from("media_channels").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/media");
+}

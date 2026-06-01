@@ -46,7 +46,10 @@ export default async function MembersAdminPage() {
             <h1 className="text-xl font-extrabold text-slate-900">スタッフ権限の割当</h1>
             <p className="text-xs text-slate-500 mt-1">各スタッフの役割・データ範囲・担当店舗を設定します。</p>
           </div>
-          <Link href="/admin/roles" className="btn-ghost !py-2">権限マトリクス →</Link>
+          <div className="flex gap-2">
+            <Link href="/admin/media" className="btn-ghost !py-2">媒体設定 →</Link>
+            <Link href="/admin/roles" className="btn-ghost !py-2">権限マトリクス →</Link>
+          </div>
         </div>
         <MemberAdminTable
           members={(members as Member[]) || []}
