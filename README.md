@@ -56,7 +56,8 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 5. `supabase/migrations/0005_members_tickets.sql` … 会員・回数券（customers / ticket_plans / customer_tickets / ticket_usages + RLS + 既定プラン）
 6. `supabase/migrations/0006_rbac.sql` … 権限基盤（departments / members.scope・department_id / member_store_access / role_permissions + 既定マトリクス）
 7. `supabase/migrations/0007_rls_enforcement.sql` … RLS強化（役割・スコープ・担当店舗に基づくポリシーへ置換）
-8. （任意）`supabase/seed.sql` … 成増店レコード
+8. `supabase/migrations/0008_media_channels.sql` … 媒体（集客チャネル）マスタ + 既定媒体 + RLS
+9. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -110,6 +111,7 @@ npm run dev
 | `/members` | 会員・回数券管理（会員名簿・回数券プラン・回数券の発行/消化・KPI） |
 | `/admin/members` | 権限管理：スタッフごとの役割・データ範囲・担当店舗の割当（staff_admin=管理 のみ） |
 | `/admin/roles` | 権限管理：役割×機能の権限マトリクス編集（なし/閲覧/編集/管理） |
+| `/admin/media` | 媒体（集客チャネル）設定：日報の契約メモで選べる媒体の追加/有効無効/削除 |
 
 > ## 権限管理（RBAC）について
 >

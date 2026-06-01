@@ -6,6 +6,7 @@ import {
   SUBSCRIPTION_PLANS,
   TICKET_PLANS,
   type ContractType,
+  type MediaChannel,
   type Member,
   type Store,
 } from "@/lib/types";
@@ -13,6 +14,7 @@ import AiFeedbackCard, { type FeedbackData } from "./AiFeedbackCard";
 
 type MemoDraft = {
   outcome: "won" | "lost";
+  channel: string;
   contract_type: ContractType | null;
   contract_plan: number | null;
   customer_name: string;
@@ -31,6 +33,7 @@ function todayJST(): string {
 
 const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   outcome,
+  channel: "",
   contract_type: outcome === "won" ? "ticket" : null,
   contract_plan: outcome === "won" ? TICKET_PLANS[0] : null,
   customer_name: "",
@@ -68,7 +71,15 @@ function NumberField({
   );
 }
 
-export default function ReportForm({ member, store }: { member: Member; store: Store | null }) {
+export default function ReportForm({
+  member,
+  store,
+  channels,
+}: {
+  member: Member;
+  store: Store | null;
+  channels: MediaChannel[];
+}) {
   const supabase = createClient();
 
   const [reportDate, setReportDate] = useState(todayJST());
@@ -133,6 +144,7 @@ export default function ReportForm({ member, store }: { member: Member; store: S
         setMemos(
           (memoRows || []).map((m) => ({
             outcome: m.outcome,
+            channel: m.channel || "",
             contract_type: m.contract_type ?? (m.outcome === "won" ? "ticket" : null),
             contract_plan: m.contract_plan ?? (m.outcome === "won" ? TICKET_PLANS[0] : null),
             customer_name: m.customer_name || "",
@@ -203,6 +215,7 @@ export default function ReportForm({ member, store }: { member: Member; store: S
           store_id: member.store_id,
           member_id: member.id,
           outcome: m.outcome,
+          channel: m.channel || null,
           contract_type: m.outcome === "won" ? m.contract_type : null,
           contract_plan: m.outcome === "won" ? m.contract_plan : null,
           customer_name: m.customer_name || null,
@@ -334,6 +347,24 @@ export default function ReportForm({ member, store }: { member: Member; store: S
                   削除
                 </button>
               </div>
+
+              <label className="block mb-2">
+                <span className="block text-[11px] text-slate-500 mb-1">媒体（どこから来たお客様か）</span>
+                <select
+                  className="field-input !py-2"
+                  value={m.channel}
+                  onChange={(e) => updateMemo(i, { channel: e.target.value })}
+                >
+                  <option value="">-- 媒体を選択 --</option>
+                  {channels.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                  {/* 既存データに無い値が入っていた場合も表示 */}
+                  {m.channel && !channels.some((c) => c.name === m.channel) && (
+                    <option value={m.channel}>{m.channel}</option>
+                  )}
+                </select>
+              </label>
 
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <label className="block">

@@ -53,7 +53,8 @@ export function buildUserPrompt(
       : won
           .map((m, i) => {
             const plan = contractLabel(m);
-            return `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）${plan ? ` / 契約: ${plan}` : ""}\n     決め手: ${m.reason || "未記入"}`;
+            const ch = m.channel ? ` / 媒体: ${m.channel}` : "";
+            return `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）${ch}${plan ? ` / 契約: ${plan}` : ""}\n     決め手: ${m.reason || "未記入"}`;
           })
           .join("\n");
 
@@ -63,7 +64,7 @@ export function buildUserPrompt(
       : lost
           .map(
             (m, i) =>
-              `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）\n     取れなかった理由: ${m.reason || "未記入"}`
+              `  ${i + 1}. ${m.customer_name || "お客様"}（${m.customer_attr || "属性不明"}）${m.channel ? ` / 媒体: ${m.channel}` : ""}\n     取れなかった理由: ${m.reason || "未記入"}`
           )
           .join("\n");
 
