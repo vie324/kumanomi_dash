@@ -91,7 +91,15 @@ async function ensureMember(m) {
     user = data.user;
     console.log(`  + Authユーザー作成: ${m.name} <${m.email}>`);
   } else {
-    console.log(`  = Authユーザー既存: ${m.name} <${m.email}>`);
+    // 既存ユーザーはパスワードを既定値に再設定し、メール確認済みにする
+    // （手動作成や未確認状態でもログインできるようにする）
+    const { error } = await supabase.auth.admin.updateUserById(user.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { name: m.name, store_id: STORE_ID },
+    });
+    if (error) throw error;
+    console.log(`  = Authユーザー更新(パスワード再設定/確認済み): ${m.name} <${m.email}>`);
   }
 
   // 2) members 行（auth_user_id で upsert）
