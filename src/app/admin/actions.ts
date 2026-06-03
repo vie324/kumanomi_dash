@@ -63,6 +63,90 @@ export async function setMemberStores(memberId: string, storeIds: string[]) {
 }
 
 // ------------------------------------------------------------
+// スタッフ（メンバー）の追加・削除
+// ------------------------------------------------------------
+// Auth ユーザーを作成し、members 行を作る。
+export async function createStaffMember(args: {
+  name: string;
+  email: string;
+  password: string;
+  storeId: string;
+  role?: Role;
+}) {
+  await assertStaffAdmin();
+  const name = args.name.trim();
+  const email = args.email.trim().toLowerCase();
+  const role: Role = args.role ?? "staff";
+  if (!name) throw new Error("氏名を入力してください");
+  if (!email) throw new Error("メールアドレスを入力してください");
+  if (!args.password || args.password.length < 6) {
+    throw new Error("パスワードは6文字以上にしてください");
+  }
+
+  const admin = createAdminClient();
+
+  // 1) Auth ユーザー作成（メール確認済み）
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email,
+    password: args.password,
+    email_confirm: true,
+    user_metadata: { name, store_id: args.storeId },
+  });
+  if (createErr) {
+    // 既に存在する場合などは分かりやすいメッセージに
+    throw new Error(createErr.message);
+  }
+  const userId = created.user!.id;
+
+  // 2) members 行（auth_user_id で upsert）
+  const { error: memberErr } = await admin.from("members").upsert(
+    {
+      auth_user_id: userId,
+      store_id: args.storeId,
+      name,
+      email,
+      role,
+      scope: role === "staff" ? "store" : null,
+      active: true,
+    },
+    { onConflict: "auth_user_id" }
+  );
+  if (memberErr) {
+    // members 作成に失敗したら Auth ユーザーも巻き戻す
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    throw new Error(memberErr.message);
+  }
+  revalidatePath("/admin/members");
+}
+
+// メンバーと紐づく Auth ユーザーを削除
+export async function deleteStaffMember(memberId: string) {
+  const current = await assertStaffAdmin();
+  if (current.id === memberId) {
+    throw new Error("自分自身は削除できません");
+  }
+  const admin = createAdminClient();
+  // 対象メンバーの auth_user_id を取得
+  const { data: target, error: fetchErr } = await admin
+    .from("members")
+    .select("auth_user_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  // members 行を削除（関連は外部キーの on delete で処理）
+  const { error: delErr } = await admin.from("members").delete().eq("id", memberId);
+  if (delErr) throw new Error(delErr.message);
+
+  // Auth ユーザーも削除
+  const authId = (target as { auth_user_id: string | null } | null)?.auth_user_id;
+  if (authId) {
+    await admin.auth.admin.deleteUser(authId).catch(() => {});
+  }
+  revalidatePath("/admin/members");
+}
+
+// ------------------------------------------------------------
 // 媒体（集客チャネル）マスタ
 // ------------------------------------------------------------
 export async function addMediaChannel(args: { storeId: string; name: string }) {

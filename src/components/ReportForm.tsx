@@ -274,7 +274,7 @@ export default function ReportForm({
             />
           </label>
           <label className="block flex-1 min-w-[160px]">
-            <span className="field-label">売上（円）</span>
+            <span className="field-label">個人売上（円）</span>
             <input
               type="number"
               inputMode="numeric"
@@ -321,16 +321,16 @@ export default function ReportForm({
           </div>
           <div className="flex gap-2 shrink-0">
             <button type="button" className="btn-ghost !py-1.5 !px-3 text-xs" onClick={() => setMemos((p) => [...p, emptyMemo("won")])}>
-              ＋ 契約取れた
+              ＋ 契約あり
             </button>
             <button type="button" className="btn-ghost !py-1.5 !px-3 text-xs" onClick={() => setMemos((p) => [...p, emptyMemo("lost")])}>
-              ＋ 取れなかった
+              ＋ 契約なし
             </button>
           </div>
         </div>
 
         {memos.length === 0 && (
-          <p className="text-xs text-slate-400">「契約取れた」「取れなかった」ボタンで、新規のお客様ごとに記録を追加できます。</p>
+          <p className="text-xs text-slate-400">「契約あり」「契約なし」ボタンで、新規のお客様ごとに記録を追加できます。</p>
         )}
 
         <div className="space-y-3">
@@ -454,7 +454,7 @@ export default function ReportForm({
         <textarea
           className="field-input"
           rows={3}
-          placeholder="明日に向けて具体的にやること"
+          placeholder="明日の行動計画等"
           value={tomorrowAction}
           onChange={(e) => setTomorrowAction(e.target.value)}
         />

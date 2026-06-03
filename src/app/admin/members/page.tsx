@@ -57,6 +57,7 @@ export default async function MembersAdminPage() {
           departments={(departments as Department[]) || []}
           accessMap={accessMap}
           currentMemberId={member.id}
+          defaultStoreId={member.store_id}
         />
       </main>
     </>
