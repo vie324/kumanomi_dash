@@ -45,6 +45,8 @@ const MEMBERS = [
   { name: "大野愛夏", email: "ohno@kumanomi-narimasu.jp" },
   { name: "永井諒", email: "nagai@kumanomi-narimasu.jp" },
   { name: "高山大志", email: "takayama@kumanomi-narimasu.jp" },
+  { name: "原田ふう花", email: "harada@kumanomi-narimasu.jp" },
+  { name: "河邉実生", email: "kawabe@kumanomi-narimasu.jp" },
 ];
 
 async function ensureStore() {

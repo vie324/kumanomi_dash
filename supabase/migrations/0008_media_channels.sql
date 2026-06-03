@@ -46,6 +46,7 @@ from (values
   ('紹介', 4),
   ('チラシ', 5),
   ('看板・通りがかり', 6),
+  ('EPARK', 7),
   ('その他', 99)
 ) as v(name, ord)
 where not exists (select 1 from public.media_channels where store_id = 'narimasu');
