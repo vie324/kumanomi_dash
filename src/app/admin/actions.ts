@@ -98,6 +98,14 @@ export async function createStaffMember(args: {
   }
   const userId = created.user!.id;
 
+  // 店舗の業態をメンバーに引き継ぐ
+  const { data: storeRow } = await admin
+    .from("stores")
+    .select("genre")
+    .eq("id", args.storeId)
+    .maybeSingle();
+  const genre = (storeRow as { genre: string } | null)?.genre ?? "seitai";
+
   // 2) members 行（auth_user_id で upsert）
   const { error: memberErr } = await admin.from("members").upsert(
     {
@@ -107,6 +115,7 @@ export async function createStaffMember(args: {
       email,
       role,
       scope: role === "staff" ? "store" : null,
+      genre,
       active: true,
     },
     { onConflict: "auth_user_id" }

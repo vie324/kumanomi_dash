@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Member, Store } from "@/lib/types";
+import { GENRE_LABELS, type Member, type Store } from "@/lib/types";
 import { getPermissionMatrix } from "@/lib/auth";
 import { can, canEdit, type Resource } from "@/lib/permissions";
 
@@ -44,7 +44,12 @@ export default async function AppHeader({
               く
             </div>
             <div className="leading-tight">
-              <p className="text-sm font-extrabold text-slate-900">{store?.name || "くまのみ整体院"}</p>
+              <p className="text-sm font-extrabold text-slate-900">
+                {store?.name || "くまのみ"}
+                <span className="ml-1.5 text-[10px] font-bold text-sise-600 align-middle">
+                  {GENRE_LABELS[member.genre]}
+                </span>
+              </p>
               <p className="text-[10px] text-slate-400">{member.name} さん</p>
             </div>
           </div>

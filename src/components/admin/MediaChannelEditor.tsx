@@ -33,9 +33,11 @@ export default function MediaChannelEditor({
           {
             id: `tmp_${Date.now()}`,
             store_id: storeId,
+            genre: null,
             name,
             sort_order: (prev.at(-1)?.sort_order ?? 0) + 1,
             active: true,
+            unit_price: false,
             created_at: new Date().toISOString(),
           },
         ]);
@@ -115,6 +117,9 @@ export default function MediaChannelEditor({
       <div className="glass-card divide-y divide-slate-100">
         {channels.map((c) => (
           <div key={c.id} className="flex items-center gap-2 p-3">
+            <span className="text-[10px] font-bold text-slate-400 w-10 shrink-0">
+              {c.genre === "esthe" ? "エステ" : c.genre === "seitai" ? "整体" : "共通"}
+            </span>
             <input
               className={`field-input !py-1.5 flex-1 ${c.active ? "" : "text-slate-400 line-through"}`}
               value={c.name}
@@ -122,6 +127,9 @@ export default function MediaChannelEditor({
               onBlur={(e) => handleRenameCommit(c, e.target.value)}
               disabled={pending}
             />
+            {c.unit_price && (
+              <span className="text-[10px] font-bold text-sise-600 shrink-0" title="日報で単価を入力する媒体">単価</span>
+            )}
             <button
               className={`text-xs px-2.5 py-1.5 rounded-lg font-semibold ${
                 c.active ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"

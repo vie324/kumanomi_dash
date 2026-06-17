@@ -26,14 +26,17 @@ export default async function NewReportPage() {
     return <PermissionDenied member={member} store={(store as Store) ?? null} message="日報を入力する権限がありません。" />;
   }
 
-  // 媒体マスタ（自店舗 + 全店舗共通）
+  // 媒体マスタ（本人の業態 + 自店舗/全店舗共通のみ）
   const { data: channelRows } = await supabase
     .from("media_channels")
     .select("*")
     .eq("active", true)
-    .or(`store_id.eq.${member.store_id},store_id.is.null`)
     .order("sort_order", { ascending: true });
-  const channels = (channelRows as MediaChannel[]) || [];
+  const channels = ((channelRows as MediaChannel[]) || []).filter(
+    (c) =>
+      (c.genre === null || c.genre === member.genre) &&
+      (c.store_id === null || c.store_id === member.store_id)
+  );
 
   return (
     <>

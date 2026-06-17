@@ -57,7 +57,9 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 6. `supabase/migrations/0006_rbac.sql` … 権限基盤（departments / members.scope・department_id / member_store_access / role_permissions + 既定マトリクス）
 7. `supabase/migrations/0007_rls_enforcement.sql` … RLS強化（役割・スコープ・担当店舗に基づくポリシーへ置換）
 8. `supabase/migrations/0008_media_channels.sql` … 媒体（集客チャネル）マスタ + 既定媒体 + RLS
-9. （任意）`supabase/seed.sql` … 成増店レコード
+9. `supabase/migrations/0009_add_epark_channel.sql` … 媒体に EPARK 追加
+10. `supabase/migrations/0010_genre_stores_media.sql` … 業態(整体/エステ) + エステ5店舗(大宮/銀座/越谷/川越/熊谷) + 媒体の業態/単価対応 + 契約メモに金額
+11. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 

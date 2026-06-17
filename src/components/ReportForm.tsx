@@ -15,6 +15,7 @@ import AiFeedbackCard, { type FeedbackData } from "./AiFeedbackCard";
 type MemoDraft = {
   outcome: "won" | "lost";
   channel: string;
+  amount: string; // 単価媒体のときの金額（円）
   contract_type: ContractType | null;
   contract_plan: number | null;
   customer_name: string;
@@ -34,6 +35,7 @@ function todayJST(): string {
 const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   outcome,
   channel: "",
+  amount: "",
   contract_type: outcome === "won" ? "ticket" : null,
   contract_plan: outcome === "won" ? TICKET_PLANS[0] : null,
   customer_name: "",
@@ -145,6 +147,7 @@ export default function ReportForm({
           (memoRows || []).map((m) => ({
             outcome: m.outcome,
             channel: m.channel || "",
+            amount: m.amount != null ? String(m.amount) : "",
             contract_type: m.contract_type ?? (m.outcome === "won" ? "ticket" : null),
             contract_plan: m.contract_plan ?? (m.outcome === "won" ? TICKET_PLANS[0] : null),
             customer_name: m.customer_name || "",
@@ -216,6 +219,7 @@ export default function ReportForm({
           member_id: member.id,
           outcome: m.outcome,
           channel: m.channel || null,
+          amount: m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null,
           contract_type: m.outcome === "won" ? m.contract_type : null,
           contract_plan: m.outcome === "won" ? m.contract_plan : null,
           customer_name: m.customer_name || null,
@@ -348,23 +352,39 @@ export default function ReportForm({
                 </button>
               </div>
 
-              <label className="block mb-2">
-                <span className="block text-[11px] text-slate-500 mb-1">媒体（どこから来たお客様か）</span>
-                <select
-                  className="field-input !py-2"
-                  value={m.channel}
-                  onChange={(e) => updateMemo(i, { channel: e.target.value })}
-                >
-                  <option value="">-- 媒体を選択 --</option>
-                  {channels.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                  {/* 既存データに無い値が入っていた場合も表示 */}
-                  {m.channel && !channels.some((c) => c.name === m.channel) && (
-                    <option value={m.channel}>{m.channel}</option>
-                  )}
-                </select>
-              </label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <label className="block">
+                  <span className="block text-[11px] text-slate-500 mb-1">媒体（どこから来たお客様か）</span>
+                  <select
+                    className="field-input !py-2"
+                    value={m.channel}
+                    onChange={(e) => updateMemo(i, { channel: e.target.value })}
+                  >
+                    <option value="">-- 媒体を選択 --</option>
+                    {channels.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {/* 既存データに無い値が入っていた場合も表示 */}
+                    {m.channel && !channels.some((c) => c.name === m.channel) && (
+                      <option value={m.channel}>{m.channel}</option>
+                    )}
+                  </select>
+                </label>
+                {channels.find((c) => c.name === m.channel)?.unit_price && (
+                  <label className="block">
+                    <span className="block text-[11px] text-slate-500 mb-1">単価（円）</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className="field-input !py-2"
+                      placeholder="0"
+                      value={m.amount}
+                      onChange={(e) => updateMemo(i, { amount: e.target.value })}
+                    />
+                  </label>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <label className="block">
