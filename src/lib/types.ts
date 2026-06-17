@@ -108,6 +108,25 @@ export type MediaChannel = {
   created_at: string;
 };
 
+// メニュー・料金表マスタ
+export type MenuPlan = {
+  id: string;
+  genre: Genre;
+  store_id: string | null;
+  section: string;
+  group_name: string;
+  variant: string | null;
+  label: string | null;
+  sessions: number | null;
+  price: number | null;
+  unit_price: number | null;
+  note: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 // 契約プラン選択肢
 export const TICKET_PLANS = [4, 8, 16, 32]; // 回数券（回）
 export const SUBSCRIPTION_PLANS = [2, 4, 6, 8]; // 定額（月N回）

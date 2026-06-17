@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; resource: Resource; needEdit?: boolean
   { href: "/posture", label: "姿勢分析", resource: "posture" },
   { href: "/report-card", label: "施術レポート", resource: "report_card" },
   { href: "/members", label: "会員・回数券", resource: "members" },
+  { href: "/menu", label: "料金表", resource: "dashboard" },
 ];
 
 export default async function AppHeader({
