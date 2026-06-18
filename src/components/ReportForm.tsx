@@ -8,6 +8,7 @@ import {
   type ContractType,
   type MediaChannel,
   type Member,
+  type MenuPlan,
   type Store,
 } from "@/lib/types";
 import AiFeedbackCard, { type FeedbackData } from "./AiFeedbackCard";
@@ -18,6 +19,7 @@ type MemoDraft = {
   amount: string; // 単価媒体のときの金額（円）
   contract_type: ContractType | null;
   contract_plan: number | null;
+  menu_plan_id: string; // エステ: 契約したメニュー
   customer_name: string;
   customer_attr: string;
   reason: string;
@@ -38,6 +40,7 @@ const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   amount: "",
   contract_type: outcome === "won" ? "ticket" : null,
   contract_plan: outcome === "won" ? TICKET_PLANS[0] : null,
+  menu_plan_id: "",
   customer_name: "",
   customer_attr: "",
   reason: "",
@@ -77,12 +80,15 @@ export default function ReportForm({
   member,
   store,
   channels,
+  menuPlans = [],
 }: {
   member: Member;
   store: Store | null;
   channels: MediaChannel[];
+  menuPlans?: MenuPlan[];
 }) {
   const supabase = createClient();
+  const isEsthe = member.genre === "esthe";
 
   const [reportDate, setReportDate] = useState(todayJST());
   const [revenue, setRevenue] = useState(0);
@@ -150,6 +156,7 @@ export default function ReportForm({
             amount: m.amount != null ? String(m.amount) : "",
             contract_type: m.contract_type ?? (m.outcome === "won" ? "ticket" : null),
             contract_plan: m.contract_plan ?? (m.outcome === "won" ? TICKET_PLANS[0] : null),
+            menu_plan_id: m.menu_plan_id || "",
             customer_name: m.customer_name || "",
             customer_attr: m.customer_attr || "",
             reason: m.reason || "",
@@ -220,8 +227,16 @@ export default function ReportForm({
           outcome: m.outcome,
           channel: m.channel || null,
           amount: m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null,
-          contract_type: m.outcome === "won" ? m.contract_type : null,
-          contract_plan: m.outcome === "won" ? m.contract_plan : null,
+          // エステはメニュー連携、整体は回数券/定額
+          menu_plan_id: m.outcome === "won" && isEsthe && m.menu_plan_id ? m.menu_plan_id : null,
+          menu_label:
+            m.outcome === "won" && isEsthe && m.menu_plan_id
+              ? menuPlans.find((p) => p.id === m.menu_plan_id)?.label
+                ? `${menuPlans.find((p) => p.id === m.menu_plan_id)!.group_name} ${menuPlans.find((p) => p.id === m.menu_plan_id)!.label ?? ""}`.trim()
+                : null
+              : null,
+          contract_type: m.outcome === "won" && !isEsthe ? m.contract_type : null,
+          contract_plan: m.outcome === "won" && !isEsthe ? m.contract_plan : null,
           customer_name: m.customer_name || null,
           customer_attr: m.customer_attr || null,
           reason: m.reason || null,
@@ -256,6 +271,20 @@ export default function ReportForm({
   const wonCount = memos.filter((m) => m.outcome === "won").length;
   const reservationRatePct =
     existingTreatments > 0 ? Math.round((nextReservations / existingTreatments) * 100) : 0;
+
+  // メニューを section ごとにグルーピング（契約内容セレクト用）
+  const menuOptionGroups = (() => {
+    const order: string[] = [];
+    const map = new Map<string, MenuPlan[]>();
+    for (const p of menuPlans) {
+      if (!map.has(p.section)) {
+        map.set(p.section, []);
+        order.push(p.section);
+      }
+      map.get(p.section)!.push(p);
+    }
+    return order.map((section) => ({ section, items: map.get(section)! }));
+  })();
   const secondVisitRatePct = newCount > 0 ? Math.round((secondVisit / newCount) * 100) : 0;
 
   if (loading) {
@@ -292,14 +321,21 @@ export default function ReportForm({
         </div>
       </section>
 
-      {/* 既存施術 → 次回予約 */}
+      {/* 既存施術 → 次回予約（次回予約は整体のみ） */}
       <section className="glass-card p-5">
         <h2 className="text-sm font-bold text-slate-800 mb-3">施術数（既存のみ）</h2>
         <div className="grid grid-cols-2 gap-3 max-w-md">
-          <NumberField label="施術数（新患を含めない）" color="orange" value={existingTreatments} onChange={setExistingTreatments} />
-          <NumberField label="うち 次回予約数" color="emerald" value={nextReservations} onChange={setNextReservations} />
+          <NumberField
+            label={isEsthe ? "施術数（新規を含めない）" : "施術数（新患を含めない）"}
+            color="orange"
+            value={existingTreatments}
+            onChange={setExistingTreatments}
+          />
+          {!isEsthe && (
+            <NumberField label="うち 次回予約数" color="emerald" value={nextReservations} onChange={setNextReservations} />
+          )}
         </div>
-        {existingTreatments > 0 && (
+        {!isEsthe && existingTreatments > 0 && (
           <p className="text-xs text-slate-500 mt-2">次回予約率 <span className="font-bold text-emerald-600">{reservationRatePct}%</span></p>
         )}
       </section>
@@ -398,7 +434,32 @@ export default function ReportForm({
               </div>
 
               {/* 契約内容（契約ありのみ） */}
-              {m.outcome === "won" && (
+              {m.outcome === "won" && isEsthe && (
+                <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5">
+                  <p className="text-[11px] font-semibold text-slate-500 mb-2">契約内容（料金表メニュー）</p>
+                  <select
+                    className="field-input !py-2"
+                    value={m.menu_plan_id}
+                    onChange={(e) => updateMemo(i, { menu_plan_id: e.target.value })}
+                  >
+                    <option value="">-- メニューを選択 --</option>
+                    {menuOptionGroups.map((g) => (
+                      <optgroup key={g.section} label={g.section}>
+                        {g.items.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {[p.group_name, p.variant, p.label].filter(Boolean).join(" ")}
+                            {p.price != null ? `（¥${Number(p.price).toLocaleString()}）` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {menuPlans.length === 0 && (
+                    <p className="text-[11px] text-amber-600 mt-1">料金表メニューが未登録です。管理画面で登録してください。</p>
+                  )}
+                </div>
+              )}
+              {m.outcome === "won" && !isEsthe && (
                 <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5">
                   <p className="text-[11px] font-semibold text-slate-500 mb-2">契約内容</p>
                   <div className="flex gap-2 mb-2">

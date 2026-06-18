@@ -5,6 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import DashboardCharts from "@/components/DashboardCharts";
+import StoreFilter from "@/components/StoreFilter";
 import { type DailyReport, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,11 @@ function Kpi({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { store?: string };
+}) {
   const access = await loadPageAccess("dashboard");
   if (!access.member) return <NoAccess />;
   const { member, storeIds } = access;
@@ -62,8 +67,23 @@ export default async function DashboardPage() {
     return <PermissionDenied member={member} store={store} message="ダッシュボードの閲覧権限がありません。" />;
   }
 
+  // スコープ内の店舗一覧（複数店舗が見えるユーザー向けの店舗フィルタ用）
+  let scopeStores: Store[] = [];
+  {
+    let q = supabase.from("stores").select("*").eq("active", true).order("name", { ascending: true });
+    if (storeIds) q = q.in("id", storeIds);
+    const { data } = await q;
+    scopeStores = (data as Store[]) || [];
+  }
+
+  // ?store= が指定され、かつスコープ内ならその店舗に絞る
+  const selectedStore =
+    searchParams.store && scopeStores.some((s) => s.id === searchParams.store)
+      ? searchParams.store
+      : null;
+
   // スコープ内の店舗に限定（storeIds が null なら全店舗）
-  const scopeStoreIds = storeIds ?? null;
+  const scopeStoreIds = selectedStore ? [selectedStore] : storeIds ?? null;
 
   let membersQuery = supabase.from("members").select("*").eq("active", true);
   if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
@@ -175,9 +195,14 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900">今月のダッシュボード</h1>
-            <p className="text-xs text-slate-500">{store?.name} ・ {reports.length}件の日報</p>
+            <p className="text-xs text-slate-500">
+              {selectedStore ? scopeStores.find((s) => s.id === selectedStore)?.name : "全店舗（部門内）"} ・ {reports.length}件の日報
+            </p>
           </div>
-          <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
+          <div className="flex items-center gap-2">
+            <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />
+            <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
+          </div>
         </div>
 
         {/* KPI */}

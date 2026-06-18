@@ -5,6 +5,7 @@ import { isOwnOnly } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
+import StoreFilter from "@/components/StoreFilter";
 import { type DailyReport, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,11 @@ function yen(n: number): string {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
 }
 
-export default async function ReportsListPage() {
+export default async function ReportsListPage({
+  searchParams,
+}: {
+  searchParams: { store?: string };
+}) {
   const access = await loadPageAccess("daily_reports");
   if (!access.member) return <NoAccess />;
   const { member, storeIds } = access;
@@ -28,7 +33,20 @@ export default async function ReportsListPage() {
 
   // スタッフは自分の日報のみ。それ以外はスコープ内の店舗。
   const ownOnly = isOwnOnly(member, "daily_reports");
-  const scopeStoreIds = storeIds ?? null;
+
+  // スコープ内の店舗一覧（店舗フィルタ用）
+  let scopeStores: Store[] = [];
+  if (!ownOnly) {
+    let q = supabase.from("stores").select("*").eq("active", true).order("name", { ascending: true });
+    if (storeIds) q = q.in("id", storeIds);
+    const { data } = await q;
+    scopeStores = (data as Store[]) || [];
+  }
+  const selectedStore =
+    searchParams.store && scopeStores.some((s) => s.id === searchParams.store)
+      ? searchParams.store
+      : null;
+  const scopeStoreIds = selectedStore ? [selectedStore] : storeIds ?? null;
 
   let membersQuery = supabase.from("members").select("*");
   if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
@@ -73,7 +91,10 @@ export default async function ReportsListPage() {
       <main className="max-w-5xl mx-auto px-4 py-5 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-extrabold text-slate-900">日報一覧</h1>
-          <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
+          <div className="flex items-center gap-2">
+            {!ownOnly && <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />}
+            <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
+          </div>
         </div>
 
         <div className="glass-card overflow-hidden">

@@ -93,6 +93,8 @@ export type ContractMemo = {
   customer_attr: string | null;
   reason: string | null; // 取れた理由 / 取れなかった理由
   amount: number | null; // 単価/売上額（単価媒体や任意の金額記録用）
+  menu_plan_id: string | null; // 契約したメニュー（料金表）
+  menu_label: string | null; // 表示用スナップショット
   created_at: string;
 };
 
