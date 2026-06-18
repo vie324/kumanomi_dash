@@ -5,7 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import ReportForm from "@/components/ReportForm";
-import type { MediaChannel, Store } from "@/lib/types";
+import type { MediaChannel, MenuPlan, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +38,17 @@ export default async function NewReportPage() {
       (c.store_id === null || c.store_id === member.store_id)
   );
 
+  // 契約内容リンク用の料金表メニュー（本人の業態 + 自店舗/共通）
+  const { data: menuRows } = await supabase
+    .from("menu_plans")
+    .select("*")
+    .eq("genre", member.genre)
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+  const menuPlans = ((menuRows as MenuPlan[]) || []).filter(
+    (p) => p.store_id === null || p.store_id === member.store_id
+  );
+
   return (
     <>
       <AppHeader member={member} store={(store as Store) ?? null} active="/reports/new" />
@@ -46,7 +57,7 @@ export default async function NewReportPage() {
         <p className="text-xs text-slate-500 mb-5">
           売上・成績を記録し、契約の取れた/取れなかった理由を残すと、AIが課題と改善策をフィードバックします。
         </p>
-        <ReportForm member={member} store={(store as Store) ?? null} channels={channels} />
+        <ReportForm member={member} store={(store as Store) ?? null} channels={channels} menuPlans={menuPlans} />
       </main>
     </>
   );
