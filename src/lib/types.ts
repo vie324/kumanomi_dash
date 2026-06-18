@@ -1,8 +1,16 @@
 // アプリ共通の型定義
 
+// 業態
+export type Genre = "seitai" | "esthe";
+export const GENRE_LABELS: Record<Genre, string> = {
+  seitai: "整体",
+  esthe: "エステ",
+};
+
 export type Store = {
   id: string;
   name: string;
+  genre: Genre;
   monthly_target_revenue: number;
   daily_target_new: number;
   daily_target_contract: number;
@@ -42,6 +50,7 @@ export type Member = {
   role: Role;
   scope: Scope | null;
   department_id: string | null;
+  genre: Genre;
   active: boolean;
 };
 
@@ -83,6 +92,7 @@ export type ContractMemo = {
   customer_name: string | null;
   customer_attr: string | null;
   reason: string | null; // 取れた理由 / 取れなかった理由
+  amount: number | null; // 単価/売上額（単価媒体や任意の金額記録用）
   created_at: string;
 };
 
@@ -90,10 +100,31 @@ export type ContractMemo = {
 export type MediaChannel = {
   id: string;
   store_id: string | null;
+  genre: Genre | null; // null = 全業態共通
   name: string;
   sort_order: number;
   active: boolean;
+  unit_price: boolean; // true = 日報で単価(金額)を入力させる
   created_at: string;
+};
+
+// メニュー・料金表マスタ
+export type MenuPlan = {
+  id: string;
+  genre: Genre;
+  store_id: string | null;
+  section: string;
+  group_name: string;
+  variant: string | null;
+  label: string | null;
+  sessions: number | null;
+  price: number | null;
+  unit_price: number | null;
+  note: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 // 契約プラン選択肢

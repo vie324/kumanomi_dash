@@ -57,7 +57,11 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 6. `supabase/migrations/0006_rbac.sql` … 権限基盤（departments / members.scope・department_id / member_store_access / role_permissions + 既定マトリクス）
 7. `supabase/migrations/0007_rls_enforcement.sql` … RLS強化（役割・スコープ・担当店舗に基づくポリシーへ置換）
 8. `supabase/migrations/0008_media_channels.sql` … 媒体（集客チャネル）マスタ + 既定媒体 + RLS
-9. （任意）`supabase/seed.sql` … 成増店レコード
+9. `supabase/migrations/0009_add_epark_channel.sql` … 媒体に EPARK 追加
+10. `supabase/migrations/0010_genre_stores_media.sql` … 業態(整体/エステ) + エステ5店舗(大宮/銀座/越谷/川越/熊谷) + 媒体の業態/単価対応 + 契約メモに金額
+11. `supabase/migrations/0011_menu_plans.sql` … メニュー・料金表マスタ(menu_plans) + RLS
+12. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
+13. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -109,9 +113,11 @@ npm run dev
 | `/posture` | 姿勢分析（カメラ＋MediaPipe Poseで正面/側面のスコア算出・Before/After比較・画像保存） |
 | `/report-card` | 施術レポート（カード型レポート作成・PNG書き出し） |
 | `/members` | 会員・回数券管理（会員名簿・回数券プラン・回数券の発行/消化・KPI） |
+| `/menu` | 料金表（業態・店舗に応じた回数券/サブスク/脱毛/店舗限定メニューを参照） |
 | `/admin/members` | 権限管理：スタッフの追加・削除、役割・データ範囲・担当店舗の割当（staff_admin=管理 のみ） |
 | `/admin/roles` | 権限管理：役割×機能の権限マトリクス編集（なし/閲覧/編集/管理） |
 | `/admin/media` | 媒体（集客チャネル）設定：日報の契約メモで選べる媒体の追加/有効無効/削除 |
+| `/admin/menu` | 料金表の編集：金額・回数・区分の編集/追加/削除（org_admin=編集 のみ） |
 
 > ## 権限管理（RBAC）について
 >

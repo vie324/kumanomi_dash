@@ -86,12 +86,13 @@ export default async function DashboardPage() {
     member_id: string;
     outcome: "won" | "lost";
     channel: string | null;
+    amount: number | null;
   };
   let memoRows: MemoRow[] = [];
   if (reportIds.length > 0) {
     const { data } = await supabase
       .from("contract_memos")
-      .select("report_id, member_id, outcome, channel")
+      .select("report_id, member_id, outcome, channel, amount")
       .in("report_id", reportIds);
     memoRows = (data as MemoRow[]) || [];
   }
@@ -103,13 +104,14 @@ export default async function DashboardPage() {
     wonByMember.set(w.member_id, (wonByMember.get(w.member_id) || 0) + 1);
   }
 
-  // 媒体別の契約あり/なし集計
-  const channelStats = new Map<string, { won: number; lost: number }>();
+  // 媒体別の契約あり/なし集計（金額合計も）
+  const channelStats = new Map<string, { won: number; lost: number; amount: number }>();
   for (const m of memoRows) {
     const key = m.channel || "未設定";
-    const cur = channelStats.get(key) || { won: 0, lost: 0 };
+    const cur = channelStats.get(key) || { won: 0, lost: 0, amount: 0 };
     if (m.outcome === "won") cur.won += 1;
     else cur.lost += 1;
+    cur.amount += Number(m.amount || 0);
     channelStats.set(key, cur);
   }
   const channelRows = Array.from(channelStats.entries())
@@ -119,8 +121,10 @@ export default async function DashboardPage() {
       lost: v.lost,
       total: v.won + v.lost,
       rate: v.won + v.lost > 0 ? (v.won / (v.won + v.lost)) * 100 : 0,
+      amount: v.amount,
     }))
     .sort((a, b) => b.won - a.won || b.total - a.total);
+  const channelHasAmount = channelRows.some((c) => c.amount > 0);
 
   // 集計
   const totalRevenue = reports.reduce((s, r) => s + Number(r.revenue || 0), 0);
@@ -253,6 +257,7 @@ export default async function DashboardPage() {
                   <th className="py-2 px-2 font-semibold text-center">未契約</th>
                   <th className="py-2 px-2 font-semibold text-center">合計</th>
                   <th className="py-2 px-2 font-semibold text-right">成約率</th>
+                  {channelHasAmount && <th className="py-2 px-2 font-semibold text-right">金額</th>}
                 </tr>
               </thead>
               <tbody>
@@ -263,11 +268,14 @@ export default async function DashboardPage() {
                     <td className="py-2.5 px-2 text-center text-rose-500">{c.lost}</td>
                     <td className="py-2.5 px-2 text-center text-slate-500">{c.total}</td>
                     <td className="py-2.5 px-2 text-right font-bold text-sise-600">{c.rate.toFixed(0)}%</td>
+                    {channelHasAmount && (
+                      <td className="py-2.5 px-2 text-right text-slate-600">{c.amount > 0 ? yen(c.amount) : "—"}</td>
+                    )}
                   </tr>
                 ))}
                 {channelRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-slate-400 text-sm">
+                    <td colSpan={channelHasAmount ? 6 : 5} className="py-6 text-center text-slate-400 text-sm">
                       契約メモがまだありません。日報入力で媒体を記録すると集計されます。
                     </td>
                   </tr>

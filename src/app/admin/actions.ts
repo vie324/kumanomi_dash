@@ -98,6 +98,14 @@ export async function createStaffMember(args: {
   }
   const userId = created.user!.id;
 
+  // 店舗の業態をメンバーに引き継ぐ
+  const { data: storeRow } = await admin
+    .from("stores")
+    .select("genre")
+    .eq("id", args.storeId)
+    .maybeSingle();
+  const genre = (storeRow as { genre: string } | null)?.genre ?? "seitai";
+
   // 2) members 行（auth_user_id で upsert）
   const { error: memberErr } = await admin.from("members").upsert(
     {
@@ -107,6 +115,7 @@ export async function createStaffMember(args: {
       email,
       role,
       scope: role === "staff" ? "store" : null,
+      genre,
       active: true,
     },
     { onConflict: "auth_user_id" }
@@ -192,4 +201,90 @@ export async function deleteMediaChannel(id: string) {
   const { error } = await admin.from("media_channels").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/media");
+}
+
+// ------------------------------------------------------------
+// メニュー・料金表（menu_plans）。編集は org_admin の edit 以上。
+// ------------------------------------------------------------
+async function assertMenuAdmin() {
+  const member = await getCurrentMember();
+  if (!member) throw new Error("unauthorized");
+  const matrix = await getPermissionMatrix();
+  if (!can(matrix, member, "org_admin", "edit")) throw new Error("forbidden");
+  return member;
+}
+
+export async function updateMenuPlan(args: {
+  id: string;
+  label?: string | null;
+  variant?: string | null;
+  sessions?: number | null;
+  price?: number | null;
+  unit_price?: number | null;
+  note?: string | null;
+  active?: boolean;
+}) {
+  await assertMenuAdmin();
+  const patch: Record<string, unknown> = {};
+  for (const k of ["label", "variant", "sessions", "price", "unit_price", "note", "active"] as const) {
+    if (args[k] !== undefined) patch[k] = args[k];
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.from("menu_plans").update(patch).eq("id", args.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/menu");
+  revalidatePath("/menu");
+}
+
+export async function addMenuPlan(args: {
+  genre: "seitai" | "esthe";
+  storeId: string | null;
+  section: string;
+  groupName: string;
+  variant?: string | null;
+  label?: string | null;
+  sessions?: number | null;
+  price?: number | null;
+  unitPrice?: number | null;
+  note?: string | null;
+}) {
+  await assertMenuAdmin();
+  if (!args.section.trim() || !args.groupName.trim()) {
+    throw new Error("セクションとグループ名は必須です");
+  }
+  const admin = createAdminClient();
+  const { data: maxRow } = await admin
+    .from("menu_plans")
+    .select("sort_order")
+    .eq("section", args.section)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = ((maxRow?.sort_order as number) ?? 0) + 1;
+  const { error } = await admin.from("menu_plans").insert({
+    genre: args.genre,
+    store_id: args.storeId,
+    section: args.section.trim(),
+    group_name: args.groupName.trim(),
+    variant: args.variant ?? null,
+    label: args.label ?? null,
+    sessions: args.sessions ?? null,
+    price: args.price ?? null,
+    unit_price: args.unitPrice ?? null,
+    note: args.note ?? null,
+    sort_order: nextOrder,
+    active: true,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/menu");
+  revalidatePath("/menu");
+}
+
+export async function deleteMenuPlan(id: string) {
+  await assertMenuAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin.from("menu_plans").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/menu");
+  revalidatePath("/menu");
 }
