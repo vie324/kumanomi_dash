@@ -60,8 +60,9 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 9. `supabase/migrations/0009_add_epark_channel.sql` … 媒体に EPARK 追加
 10. `supabase/migrations/0010_genre_stores_media.sql` … 業態(整体/エステ) + エステ5店舗(大宮/銀座/越谷/川越/熊谷) + 媒体の業態/単価対応 + 契約メモに金額
 11. `supabase/migrations/0011_menu_plans.sql` … メニュー・料金表マスタ(menu_plans) + RLS
-12. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
-13. （任意）`supabase/seed.sql` … 成増店レコード
+12. `supabase/migrations/0012_departments_by_genre.sql` … 整体部門/エステ部門を作成し店舗・メンバーを業態で割当
+13. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
+14. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
