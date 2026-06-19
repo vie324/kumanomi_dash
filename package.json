@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed:members": "node scripts/seed-members.mjs"
+    "seed:members": "node scripts/seed-members.mjs",
+    "seed:staff": "node scripts/seed-staff-batch.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
