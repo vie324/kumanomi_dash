@@ -138,13 +138,15 @@ npm run dev
 
 エステ各店のスタッフをまとめて作成し、配布用のログインID/仮パスワード一覧を出力します。
 
-```bash
-npm run seed:staff
-```
+**方法A（推奨・SQLのみ）**: Supabase Dashboard → SQL Editor で
+`supabase/seed_staff_batch.sql` を実行。`auth.users`/`auth.identities`/`members`
+を一括作成し、最後のSELECTで「氏名 / ログインID / 仮パスワード」を出力します。
+その結果をコピーして配布できます（重複メールはスキップ）。
 
-- `scripts/seed-staff-batch.mjs` の `STAFF` 配列を編集すれば対象を変更できます。
-- 既存ユーザーは仮パスワードを再設定します（再実行で安全）。
-- 出力された ID/PW をそのまま先方へ配布できます（初回ログイン後の変更を案内してください）。
+**方法B（ローカル実行）**: `npm run seed:staff`（`scripts/seed-staff-batch.mjs`）。
+`SUPABASE_SERVICE_ROLE_KEY` が必要。既存ユーザーは仮パスワードを再設定します。
+
+いずれも初回ログイン後のパスワード変更を案内してください。
 
 ### 日報入力 → AIフィードバックの流れ
 
