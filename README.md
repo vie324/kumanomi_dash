@@ -62,8 +62,9 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 11. `supabase/migrations/0011_menu_plans.sql` … メニュー・料金表マスタ(menu_plans) + RLS
 12. `supabase/migrations/0012_departments_by_genre.sql` … 整体部門/エステ部門を作成し店舗・メンバーを業態で割当
 13. `supabase/migrations/0013_contract_menu_link.sql` … 契約メモに料金表メニュー連携(menu_plan_id/menu_label)
-14. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
-15. （任意）`supabase/seed.sql` … 成増店レコード
+14. `supabase/migrations/0014_add_ageo_store.sql` … 上尾店（エステ部門）を追加
+15. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
+16. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
 
@@ -132,6 +133,20 @@ npm run dev
 > -- ↑ 管理者にしたいメンバーのメールに置き換え
 > ```
 > Phase A〜D まで実装済み。アプリ層（ナビ・ページ・スコープ）に加え、**Supabase の RLS でDBレベルでも権限・スコープを強制**します（`0007_rls_enforcement.sql`）。役割・スコープ（全社/部門/担当店舗/自店/自分）に基づき、閲覧は `view` 以上、書き込みは `edit` 以上、スタッフの日報は自分のもののみ。管理操作はサーバー側（service role）経由で実行されます。
+
+### スタッフの一括登録
+
+エステ各店のスタッフをまとめて作成し、配布用のログインID/仮パスワード一覧を出力します。
+
+**方法A（推奨・SQLのみ）**: Supabase Dashboard → SQL Editor で
+`supabase/seed_staff_batch.sql` を実行。`auth.users`/`auth.identities`/`members`
+を一括作成し、最後のSELECTで「氏名 / ログインID / 仮パスワード」を出力します。
+その結果をコピーして配布できます（重複メールはスキップ）。
+
+**方法B（ローカル実行）**: `npm run seed:staff`（`scripts/seed-staff-batch.mjs`）。
+`SUPABASE_SERVICE_ROLE_KEY` が必要。既存ユーザーは仮パスワードを再設定します。
+
+いずれも初回ログイン後のパスワード変更を案内してください。
 
 ### 日報入力 → AIフィードバックの流れ
 
