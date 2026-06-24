@@ -7,6 +7,22 @@ export const GENRE_LABELS: Record<Genre, string> = {
   esthe: "エステ",
 };
 
+// 業態ごとのブランド表示（名称・ロゴ）
+export type Brand = { name: string; tagline: string; logo: string };
+export const GENRE_BRAND: Record<Genre, Brand> = {
+  seitai: {
+    name: "くまのみ整体院",
+    tagline: "整骨院・整体院グループ",
+    // public/ に配置。背景透過PNG推奨。
+    logo: "/logo-kumanomi.png",
+  },
+  esthe: {
+    name: "Premium Body Balance",
+    tagline: "骨盤矯正・ダイエット・小顔専門店",
+    logo: "/logo-pbb.png",
+  },
+};
+
 export type Store = {
   id: string;
   name: string;

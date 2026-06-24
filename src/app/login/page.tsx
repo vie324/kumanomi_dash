@@ -43,8 +43,8 @@ function LoginForm() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sise-500 text-white text-xl font-extrabold mb-3">
             く
           </div>
-          <h1 className="text-lg font-extrabold text-slate-900">くまのみ整体院</h1>
-          <p className="text-xs text-slate-500 mt-1">経営ダッシュボード ・ 成増店トライアル</p>
+          <h1 className="text-lg font-extrabold text-slate-900">くまのみグループ</h1>
+          <p className="text-xs text-slate-500 mt-1">経営ダッシュボード（整体 / エステ）</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">

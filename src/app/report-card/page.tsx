@@ -22,7 +22,7 @@ export default async function ReportCardPage() {
     <>
       <AppHeader member={member} store={(storeRow as Store) ?? null} active="/report-card" />
       <main className="max-w-6xl mx-auto px-4 py-5">
-        <TreatmentReportView defaultStaff={member.name} />
+        <TreatmentReportView defaultStaff={member.name} genre={member.genre} />
       </main>
     </>
   );
