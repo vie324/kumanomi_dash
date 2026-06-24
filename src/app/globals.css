@@ -5,7 +5,36 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  /* 既定テーマ（整体 / くまのみ：オレンジ） */
+  --sise-50: #fff7ed;
+  --sise-100: #ffedd5;
+  --sise-200: #fed7aa;
+  --sise-300: #fdba74;
+  --sise-400: #fb923c;
+  --sise-500: #f97316;
+  --sise-600: #ea580c;
+  --sise-700: #c2410c;
+  --sise-800: #9a3412;
+  --sise-900: #7c2d12;
+  --sise-950: #431407;
 }
+
+/* エステテーマ（Premium Body Balance：ロゴのトープ/モーブ系） */
+.theme-esthe {
+  --sise-50: #f7f4f3;
+  --sise-100: #ece5e2;
+  --sise-200: #ddd0ca;
+  --sise-300: #c7b4ab;
+  --sise-400: #ad9387;
+  --sise-500: #97796d;
+  --sise-600: #82675c;
+  --sise-700: #6b554c;
+  --sise-800: #594843;
+  --sise-900: #4c3e3a;
+  --sise-950: #2a221f;
+}
+
 
 body {
   background: var(--background);

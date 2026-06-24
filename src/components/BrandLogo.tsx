@@ -9,7 +9,7 @@ export default function BrandLogo({ src, alt }: { src: string; alt: string }) {
     <img
       src={src}
       alt={alt}
-      className="h-9 w-auto max-w-[150px] object-contain shrink-0"
+      className="h-10 w-auto max-w-[200px] object-contain shrink-0"
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).style.display = "none";
       }}
