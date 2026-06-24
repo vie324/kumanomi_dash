@@ -2,18 +2,22 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { todayJST } from "@/lib/posture";
+import type { Genre } from "@/lib/types";
 
-const SCORE_KEYS = [
+type ScoreKey = { key: string; label: string };
+type Template = { key: string; label: string; text: string };
+type CareOption = { key: string; label: string; desc: string };
+
+// ===== 整体（seitai） =====
+const SEITAI_SCORES: ScoreKey[] = [
   { key: "posture", label: "姿勢" },
   { key: "pelvis", label: "骨盤" },
   { key: "face", label: "顔・頭" },
   { key: "metabolism", label: "代謝・巡り" },
   { key: "flex", label: "柔軟性" },
-] as const;
-
-const MENU_OPTIONS = ["骨盤矯正", "姿勢矯正", "小顔矯正", "ほぐし", "鍼灸", "美容鍼"];
-
-const COMMENT_TEMPLATES = [
+];
+const SEITAI_MENUS = ["骨盤矯正", "姿勢矯正", "小顔矯正", "ほぐし", "鍼灸", "美容鍼"];
+const SEITAI_TEMPLATES: Template[] = [
   { key: "maintenance", label: "継続ケア", text: "本日もご来店ありがとうございました。\n前回より状態が安定してきています。引き続き定期的なケアで維持していきましょう。" },
   { key: "first", label: "初回", text: "本日はご来店ありがとうございました。\nまずは姿勢の癖を意識する所から始めてみてください。少しずつ身体が変わっていくのを一緒に見ていきましょう。" },
   { key: "shoulder", label: "肩・首", text: "肩・首まわりの緊張が強く出ていました。お伝えしたストレッチを 1 日 1 回でも継続して頂けると効果が出やすいです。" },
@@ -21,8 +25,7 @@ const COMMENT_TEMPLATES = [
   { key: "face", label: "小顔", text: "食いしばり由来の側頭部・咬筋の張りがありました。顎の力を抜いて、お渡しした耳まわしを 1 日数回試してみてください。" },
   { key: "cold", label: "冷え", text: "むくみ・冷えのサインが強く出ていました。湯船にゆっくり浸かる + ふくらはぎのストレッチで巡りを良くしていきましょう。" },
 ];
-
-const STRETCH_OPTIONS = [
+const SEITAI_CARE: CareOption[] = [
   { key: "chest", label: "胸ひらき", desc: "壁の横で腕を後ろに 15 秒キープ" },
   { key: "scapula", label: "肩甲骨はがし", desc: "腕を後ろに引いて 5 秒、力を抜く × 5回" },
   { key: "neck", label: "首伸ばし", desc: "頭を斜め前に倒して 15 秒、左右各 2 回" },
@@ -34,6 +37,39 @@ const STRETCH_OPTIONS = [
   { key: "jaw", label: "咬筋ゆるめ", desc: "こめかみ〜エラ周りを指圧で軽くほぐす" },
 ];
 
+// ===== エステ（esthe / Premium Body Balance） =====
+const ESTHE_SCORES: ScoreKey[] = [
+  { key: "slimness", label: "むくみ・引き締まり" },
+  { key: "skin", label: "肌のハリ・ツヤ" },
+  { key: "face", label: "小顔・フェイスライン" },
+  { key: "posture", label: "骨盤・姿勢バランス" },
+  { key: "circulation", label: "代謝・巡り" },
+];
+const ESTHE_MENUS = [
+  // ボディ
+  "痩身（キャビ/ラジオ波）", "ハンドトリートメント", "骨盤矯正", "EMS", "ヒートマット", "リンパドレナージュ",
+  // フェイシャル
+  "フェイシャル", "360°美顔小顔矯正", "スノーピール", "RED SHOT(美肌)", "美容鍼", "顔脱毛",
+];
+const ESTHE_TEMPLATES: Template[] = [
+  { key: "first", label: "初回", text: "本日はご来店ありがとうございました。\nまずは3ヶ月、週1ペースの集中ケアで“戻ろうとする力”に勝ち、新しい状態を定着させていきましょう。" },
+  { key: "slimming", label: "痩身", text: "施術後はめぐりが良くなっています。水分を多めに摂り、本日はゆっくりお休みください。72時間以内の有酸素運動で効果がより定着します。" },
+  { key: "facial", label: "フェイシャル", text: "お肌のキメ・ハリが整いました。紫外線対策と保湿を丁寧に行い、次回までに小顔の状態をキープしていきましょう。" },
+  { key: "kogao", label: "小顔矯正", text: "フェイスラインの左右差が和らぎました。食いしばり・頬杖の癖に気をつけ、お渡ししたセルフケアを続けてみてください。" },
+  { key: "maintenance", label: "メンテナンス", text: "本日もありがとうございました。良い状態が定着してきています。月1〜2回のメンテナンスで美しさをキープしていきましょう。" },
+  { key: "cold", label: "むくみ・冷え", text: "むくみ・冷えのサインが出ていました。湯船にゆっくり浸かり、ふくらはぎを温めて巡りを促してください。" },
+];
+const ESTHE_CARE: CareOption[] = [
+  { key: "water", label: "水分補給", desc: "施術後は常温の水を 1.5〜2L 目安でこまめに" },
+  { key: "warm", label: "湯船で温め", desc: "38〜40℃に 15 分、巡りUP（当日は長湯を避ける）" },
+  { key: "lymph", label: "ふくらはぎマッサージ", desc: "下から上へさすり上げ 左右各 1 分" },
+  { key: "face-roll", label: "耳まわし", desc: "耳をつまんで前後に大きく 30 秒（小顔キープ）" },
+  { key: "uv", label: "UV・保湿ケア", desc: "日中はUVカット、朝晩しっかり保湿" },
+  { key: "protein", label: "タンパク質を意識", desc: "1食あたり手のひら1枚分のタンパク質を" },
+  { key: "walk", label: "軽い有酸素運動", desc: "施術後72時間以内のウォーキング 20 分で定着UP" },
+  { key: "sleep", label: "睡眠", desc: "成長ホルモンが出る 22〜2 時にしっかり休息を" },
+];
+
 function trScoreColor(s: number): string {
   if (s >= 4) return "#16a34a";
   if (s >= 3) return "#84cc16";
@@ -41,7 +77,20 @@ function trScoreColor(s: number): string {
   return "#dc2626";
 }
 
-export default function TreatmentReportView({ defaultStaff }: { defaultStaff: string }) {
+export default function TreatmentReportView({
+  defaultStaff,
+  genre = "seitai",
+}: {
+  defaultStaff: string;
+  genre?: Genre;
+}) {
+  const isEsthe = genre === "esthe";
+  const SCORE_KEYS = isEsthe ? ESTHE_SCORES : SEITAI_SCORES;
+  const MENU_OPTIONS = isEsthe ? ESTHE_MENUS : SEITAI_MENUS;
+  const COMMENT_TEMPLATES = isEsthe ? ESTHE_TEMPLATES : SEITAI_TEMPLATES;
+  const STRETCH_OPTIONS = isEsthe ? ESTHE_CARE : SEITAI_CARE;
+  const brandTitle = isEsthe ? "PREMIUM BODY BALANCE" : "KUMANOMI CARE REPORT";
+  const careHeading = isEsthe ? "ホームケア・アドバイス" : "おすすめストレッチ";
   const [customerName, setCustomerName] = useState("");
   const [visitDate, setVisitDate] = useState(() => todayJST());
   const [staffName, setStaffName] = useState(defaultStaff);
@@ -196,9 +245,9 @@ export default function TreatmentReportView({ defaultStaff }: { defaultStaff: st
           <textarea className="field-input" rows={5} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="コメント本文" />
         </div>
 
-        {/* ストレッチ */}
+        {/* ストレッチ / ホームケア */}
         <div className="glass-card p-4">
-          <p className="text-sm font-bold text-slate-800 mb-2">おすすめストレッチ</p>
+          <p className="text-sm font-bold text-slate-800 mb-2">{careHeading}</p>
           <div className="flex flex-wrap gap-2 mb-3">
             {STRETCH_OPTIONS.map((s) => {
               const checked = !!stretchChecks[s.key];
@@ -228,7 +277,7 @@ export default function TreatmentReportView({ defaultStaff }: { defaultStaff: st
         <div ref={captureRef} className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
           {/* ヘッダー */}
           <div className="p-5 bg-sise-50">
-            <div className="text-[11px] font-bold text-sise-800 tracking-widest">KUMANOMI CARE REPORT</div>
+            <div className="text-[11px] font-bold text-sise-800 tracking-widest">{brandTitle}</div>
             <div className="text-lg font-extrabold text-slate-800 mt-1.5">{customerName ? `${customerName} 様` : "お客様"}</div>
             <div className="text-xs text-slate-500 mt-1">{visitDate}{staffName && ` ・ 担当: ${staffName}`}</div>
           </div>
@@ -271,7 +320,7 @@ export default function TreatmentReportView({ defaultStaff }: { defaultStaff: st
 
             {(activeStretches.length > 0 || stretchNote.trim()) && (
               <div>
-                <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-1.5">HOMEWORK</div>
+                <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-1.5">{isEsthe ? "HOME CARE" : "HOMEWORK"}</div>
                 {activeStretches.map((s) => (
                   <div key={s.key} className="mb-2">
                     <div className="text-xs font-bold text-sise-800">◆ {s.label}</div>
@@ -286,7 +335,7 @@ export default function TreatmentReportView({ defaultStaff }: { defaultStaff: st
           </div>
 
           <div className="px-5 py-3 bg-sise-50/60 flex items-center justify-between">
-            <span className="text-[11px] font-bold text-sise-800">くまのみ整体院</span>
+            <span className="text-[11px] font-bold text-sise-800">{isEsthe ? "Premium Body Balance" : "くまのみ整体院"}</span>
             <span className="text-[10px] text-slate-400">SCORE AVG {avgScore.toFixed(1)} / 5.0</span>
           </div>
         </div>

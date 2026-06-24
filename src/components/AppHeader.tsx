@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { GENRE_LABELS, type Member, type Store } from "@/lib/types";
+import { GENRE_BRAND, type Member, type Store } from "@/lib/types";
 import { getPermissionMatrix } from "@/lib/auth";
 import { can, canEdit, type Resource } from "@/lib/permissions";
+import BrandLogo from "./BrandLogo";
 
-// nav 項目ごとに、表示に必要な閲覧リソースを紐付け
-const NAV: { href: string; label: string; resource: Resource; needEdit?: boolean }[] = [
+// nav 項目ごとに、表示に必要な閲覧リソースを紐付け。
+// genreOnly を指定すると、その業態のメンバーにだけ表示する。
+const NAV: { href: string; label: string; resource: Resource; needEdit?: boolean; genreOnly?: "seitai" | "esthe" }[] = [
   { href: "/", label: "ダッシュボード", resource: "dashboard" },
   { href: "/reports/new", label: "日報入力", resource: "daily_reports", needEdit: true },
   { href: "/reports", label: "日報一覧", resource: "daily_reports" },
@@ -12,6 +14,7 @@ const NAV: { href: string; label: string; resource: Resource; needEdit?: boolean
   { href: "/attendance", label: "勤怠", resource: "attendance" },
   { href: "/posture", label: "姿勢分析", resource: "posture" },
   { href: "/report-card", label: "施術レポート", resource: "report_card" },
+  { href: "/concierge", label: "診断・提案", resource: "dashboard", genreOnly: "esthe" },
   { href: "/members", label: "会員・回数券", resource: "members" },
   { href: "/menu", label: "料金表", resource: "dashboard" },
 ];
@@ -32,26 +35,24 @@ export default async function AppHeader({
   const admin = showAdmin ?? can(matrix, member, "staff_admin", "manage");
 
   // 権限のあるタブだけ表示（編集が必要な項目は edit 権限で判定）
-  const visibleNav = NAV.filter((n) =>
-    n.needEdit ? canEdit(matrix, member, n.resource) : can(matrix, member, n.resource, "view")
-  );
+  const visibleNav = NAV.filter((n) => {
+    if (n.genreOnly && n.genreOnly !== member.genre) return false;
+    return n.needEdit ? canEdit(matrix, member, n.resource) : can(matrix, member, n.resource, "view");
+  });
   const nav = admin ? [...visibleNav, { href: "/admin/members", label: "権限管理" }] : visibleNav;
+  const brand = GENRE_BRAND[member.genre];
   return (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-100">
       <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between h-14">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-sise-500 text-white grid place-items-center font-extrabold">
-              く
-            </div>
-            <div className="leading-tight">
-              <p className="text-sm font-extrabold text-slate-900">
-                {store?.name || "くまのみ"}
-                <span className="ml-1.5 text-[10px] font-bold text-sise-600 align-middle">
-                  {GENRE_LABELS[member.genre]}
-                </span>
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* 左上ロゴ（背景透過PNGを public/ に配置）。未配置でもブランド名で機能。 */}
+            <BrandLogo src={brand.logo} alt={brand.name} />
+            <div className="leading-tight min-w-0">
+              <p className="text-sm font-extrabold text-slate-900 truncate">{brand.name}</p>
+              <p className="text-[10px] text-slate-400 truncate">
+                {store?.name ? `${store.name} ・ ` : ""}{member.name} さん
               </p>
-              <p className="text-[10px] text-slate-400">{member.name} さん</p>
             </div>
           </div>
           <form action="/auth/signout" method="post">

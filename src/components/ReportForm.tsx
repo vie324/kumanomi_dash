@@ -321,7 +321,7 @@ export default function ReportForm({
         </div>
       </section>
 
-      {/* 既存施術 → 次回予約（次回予約は整体のみ） */}
+      {/* 既存施術 → 次回予約（整体・エステ共通） */}
       <section className="glass-card p-5">
         <h2 className="text-sm font-bold text-slate-800 mb-3">施術数（既存のみ）</h2>
         <div className="grid grid-cols-2 gap-3 max-w-md">
@@ -331,11 +331,14 @@ export default function ReportForm({
             value={existingTreatments}
             onChange={setExistingTreatments}
           />
-          {!isEsthe && (
-            <NumberField label="うち 次回予約数" color="emerald" value={nextReservations} onChange={setNextReservations} />
-          )}
+          <NumberField
+            label={isEsthe ? "うち 既存客の次回予約数" : "うち 次回予約数"}
+            color="emerald"
+            value={nextReservations}
+            onChange={setNextReservations}
+          />
         </div>
-        {!isEsthe && existingTreatments > 0 && (
+        {existingTreatments > 0 && (
           <p className="text-xs text-slate-500 mt-2">次回予約率 <span className="font-bold text-emerald-600">{reservationRatePct}%</span></p>
         )}
       </section>
