@@ -5,8 +5,8 @@
 
 | 業態 | ファイル名 | 内容 |
 | --- | --- | --- |
-| エステ | `public/logo-pbb.png` | Premium Body Balance のロゴ（店名入り） |
-| 整体 | `public/logo-kumanomi.png` | くまのみ整骨院・整体院グループのロゴ（店名入り） |
+| エステ | `public/logo-pbb.webp` | Premium Body Balance のロゴ（店名入り・背景透過） |
+| 整体 | `public/logo-kumanomi.webp` | くまのみ整骨院・整体院グループのロゴ（店名入り・背景透過） |
 
 - 背景透過のPNGを推奨（ヘッダーの白背景になじみます）。
 - 高さ約72px相当で表示されるため、横長でも縦 144px 以上あると綺麗です。

@@ -13,13 +13,14 @@ export const GENRE_BRAND: Record<Genre, Brand> = {
   seitai: {
     name: "くまのみ整体院",
     tagline: "整骨院・整体院グループ",
-    // public/ に配置。背景透過PNG推奨。
-    logo: "/logo-kumanomi.png",
+    // public/ に配置（背景透過）
+    logo: "/logo-kumanomi.webp",
   },
   esthe: {
     name: "Premium Body Balance",
     tagline: "骨盤矯正・ダイエット・小顔専門店",
-    logo: "/logo-pbb.png",
+    // public/ に配置（背景透過）
+    logo: "/logo-pbb.webp",
   },
 };
 
