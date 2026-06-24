@@ -17,7 +17,6 @@ const CONCERNS: Concern[] = [
   { key: "skin", label: "肌のハリ・美肌", tags: ["フェイ", "美肌", "スノーピール", "RED"] },
   { key: "posture", label: "姿勢・骨盤の歪み", tags: ["骨盤", "矯正", "姿勢"] },
   { key: "relax", label: "疲れ・リラックス", tags: ["アロマ", "ヘッド", "リラク", "ドライヘッド"] },
-  { key: "hair", label: "ムダ毛・脱毛", tags: ["脱毛"] },
 ];
 
 // 深刻度 → おすすめプラン強度（pbb_ の メンテ/集中改善/根本改革）
@@ -37,6 +36,12 @@ export default function ConciergeView({ menuPlans }: { menuPlans: MenuPlan[] }) 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [severity, setSeverity] = useState(50);
 
+  // 診断・提案では脱毛は対象外
+  const plans = useMemo(
+    () => menuPlans.filter((p) => !`${p.section}${p.group_name}`.includes("脱毛")),
+    [menuPlans]
+  );
+
   const activeConcerns = CONCERNS.filter((c) => selected[c.key]);
   const tier = useMemo(() => {
     let t = SEVERITY_TIERS[0];
@@ -48,7 +53,7 @@ export default function ConciergeView({ menuPlans }: { menuPlans: MenuPlan[] }) 
   const recommended = useMemo(() => {
     if (activeConcerns.length === 0) return [];
     const tags = activeConcerns.flatMap((c) => c.tags);
-    const matched = menuPlans.filter((p) => {
+    const matched = plans.filter((p) => {
       const hay = `${p.group_name} ${p.variant ?? ""} ${p.label ?? ""}`;
       return tags.some((t) => hay.includes(t));
     });
@@ -61,14 +66,14 @@ export default function ConciergeView({ menuPlans }: { menuPlans: MenuPlan[] }) 
       groups.push({ group: p.group_name, section: p.section, example: p });
     }
     return groups;
-  }, [activeConcerns, menuPlans]);
+  }, [activeConcerns, plans]);
 
   // ティアに合う回数のプラン候補（おすすめ回数券）
   const tierPlans = useMemo(() => {
-    return menuPlans
+    return plans
       .filter((p) => p.sessions != null && tier.sessions.includes(p.sessions))
       .slice(0, 12);
-  }, [menuPlans, tier]);
+  }, [plans, tier]);
 
   return (
     <div className="space-y-5 animate-fade-in">

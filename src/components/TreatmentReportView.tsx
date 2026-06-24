@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { todayJST } from "@/lib/posture";
 import type { Genre } from "@/lib/types";
+import ReportRadar from "./ReportRadar";
 
 type ScoreKey = { key: string; label: string };
 type Template = { key: string; label: string; text: string };
@@ -103,7 +104,26 @@ export default function TreatmentReportView({
   const [stretchNote, setStretchNote] = useState("");
   const [exporting, setExporting] = useState(false);
 
+  // 写真（Before / After）
+  const [beforePhoto, setBeforePhoto] = useState<string | null>(null);
+  const [afterPhoto, setAfterPhoto] = useState<string | null>(null);
+
+  // 次回ご来店クーポン
+  const [nextOffer, setNextOffer] = useState("");
+  const [nextExpiry, setNextExpiry] = useState("");
+
   const captureRef = useRef<HTMLDivElement | null>(null);
+
+  function readPhoto(file: File | null, set: (v: string | null) => void) {
+    if (!file) return set(null);
+    const reader = new FileReader();
+    reader.onload = () => set(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
+  }
+
+  // テーマ色（エステ=トープ / 整体=オレンジ）。レーダー/PNGの色に使用。
+  const themeColor = isEsthe ? "#97796d" : "#f97316";
+  const radarData = SCORE_KEYS.map((k) => ({ axis: k.label, value: scores[k.key] || 0 }));
 
   const activeMenus = MENU_OPTIONS.filter((m) => menuChecks[m]);
   const activeStretches = STRETCH_OPTIONS.filter((s) => stretchChecks[s.key]);
@@ -128,6 +148,10 @@ export default function TreatmentReportView({
     setMenuChecks({});
     setScores(SCORE_KEYS.reduce((o, s) => ({ ...o, [s.key]: 3 }), {}));
     setStretchChecks({});
+    setBeforePhoto(null);
+    setAfterPhoto(null);
+    setNextOffer("");
+    setNextExpiry("");
   }
 
   const exportPng = useCallback(async () => {
@@ -266,6 +290,58 @@ export default function TreatmentReportView({
           </div>
           <textarea className="field-input" rows={3} value={stretchNote} onChange={(e) => setStretchNote(e.target.value)} placeholder="自由メモ（任意）" />
         </div>
+
+        {/* 写真 Before / After */}
+        <div className="glass-card p-4">
+          <p className="text-sm font-bold text-slate-800 mb-2">写真（Before / After・任意）</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Before", val: beforePhoto, set: setBeforePhoto },
+              { label: "After", val: afterPhoto, set: setAfterPhoto },
+            ].map((p) => (
+              <div key={p.label}>
+                <span className="field-label">{p.label}</span>
+                {p.val ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.val} alt={p.label} className="w-full aspect-[3/4] object-cover rounded-xl border border-slate-200" />
+                    <button
+                      className="absolute top-1 right-1 text-[10px] bg-black/55 text-white px-2 py-0.5 rounded"
+                      onClick={() => p.set(null)}
+                    >
+                      削除
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex aspect-[3/4] items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-xs text-slate-400 cursor-pointer hover:bg-slate-50">
+                    ＋ 写真を選択
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => readPhoto(e.target.files?.[0] ?? null, p.set)}
+                    />
+                  </label>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 次回ご来店特典 */}
+        <div className="glass-card p-4">
+          <p className="text-sm font-bold text-slate-800 mb-2">次回ご来店特典（任意）</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="block">
+              <span className="field-label">特典内容</span>
+              <input className="field-input" value={nextOffer} onChange={(e) => setNextOffer(e.target.value)} placeholder="例：次回ボディ10%OFF" />
+            </label>
+            <label className="block">
+              <span className="field-label">有効期限</span>
+              <input type="date" className="field-input" value={nextExpiry} onChange={(e) => setNextExpiry(e.target.value)} />
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* プレビュー */}
@@ -296,20 +372,54 @@ export default function TreatmentReportView({
 
             <div className="mb-4">
               <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-1.5">BODY SCORE</div>
-              {SCORE_KEYS.map((k) => {
-                const v = scores[k.key] || 0;
-                const pct = (v / 5) * 100;
-                return (
-                  <div key={k.key} className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[11px] font-bold text-slate-600 w-16">{k.label}</span>
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: pct + "%", background: trScoreColor(v) }} />
-                    </div>
-                    <span className="text-[11px] font-extrabold w-7 text-right" style={{ color: trScoreColor(v) }}>{v.toFixed(1)}</span>
-                  </div>
-                );
-              })}
+              <div className="grid grid-cols-2 gap-2 items-center">
+                {/* レーダーチャート */}
+                <div className="-ml-1">
+                  <ReportRadar data={radarData} color={themeColor} />
+                </div>
+                {/* 項目バー */}
+                <div>
+                  {SCORE_KEYS.map((k) => {
+                    const v = scores[k.key] || 0;
+                    const pct = (v / 5) * 100;
+                    return (
+                      <div key={k.key} className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-[10px] font-bold text-slate-600 w-[4.5rem] leading-tight">{k.label}</span>
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: pct + "%", background: trScoreColor(v) }} />
+                        </div>
+                        <span className="text-[10px] font-extrabold w-6 text-right" style={{ color: trScoreColor(v) }}>{v.toFixed(1)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
+
+            {/* 写真 Before/After */}
+            {(beforePhoto || afterPhoto) && (
+              <div className="mb-4">
+                <div className="text-[10px] font-bold text-slate-400 tracking-widest mb-1.5">BEFORE / AFTER</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Before", val: beforePhoto },
+                    { label: "After", val: afterPhoto },
+                  ].map((p) => (
+                    <div key={p.label} className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
+                      {p.val ? (
+                        <div className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.val} alt={p.label} className="w-full aspect-[3/4] object-cover" />
+                          <span className="absolute top-1 left-1 text-[9px] font-bold bg-black/55 text-white px-1.5 py-0.5 rounded">{p.label}</span>
+                        </div>
+                      ) : (
+                        <div className="aspect-[3/4] grid place-items-center text-[10px] text-slate-300">{p.label} なし</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {comment.trim() && (
               <div className="mb-4">
@@ -330,6 +440,15 @@ export default function TreatmentReportView({
                 {stretchNote.trim() && (
                   <div className="mt-2 p-2.5 bg-sise-50 rounded-lg text-[11px] text-sise-900 whitespace-pre-wrap leading-relaxed">{stretchNote.trim()}</div>
                 )}
+              </div>
+            )}
+
+            {/* 次回ご来店特典 */}
+            {nextOffer.trim() && (
+              <div className="mt-4 rounded-xl border-2 border-dashed border-sise-300 bg-sise-50/50 p-3 text-center">
+                <div className="text-[10px] font-bold text-sise-700 tracking-widest">NEXT VISIT</div>
+                <div className="text-sm font-extrabold text-slate-800 mt-0.5">{nextOffer.trim()}</div>
+                {nextExpiry && <div className="text-[10px] text-slate-500 mt-0.5">有効期限：{nextExpiry}</div>}
               </div>
             )}
           </div>
