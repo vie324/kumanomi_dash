@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { formatDateLabel } from "@/lib/date";
+import type { Member, PostureRecord } from "@/lib/types";
 import {
   analyzeFront,
   analyzeSide,
@@ -19,7 +22,16 @@ type Phase = "idle" | "loading" | "live" | "captured";
 type Mode = "front" | "side";
 type StashData = { mode: Mode; image: string; analysis: PostureAnalysis | null };
 
-export default function PostureView() {
+export default function PostureView({
+  member,
+  canEdit = false,
+  initialRecords = [],
+}: {
+  member?: Member;
+  canEdit?: boolean;
+  initialRecords?: PostureRecord[];
+} = {}) {
+  const supabase = createClient();
   const [mode, setMode] = useState<Mode>("front");
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -29,6 +41,39 @@ export default function PostureView() {
   const [overlayOn, setOverlayOn] = useState(true);
   const [beforeData, setBeforeData] = useState<StashData | null>(null);
   const [afterData, setAfterData] = useState<StashData | null>(null);
+
+  // 保存・履歴
+  const [customerName, setCustomerName] = useState("");
+  const [records, setRecords] = useState<PostureRecord[]>(initialRecords);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  const canSave = !!member && canEdit;
+
+  async function saveRecord() {
+    if (!member || !analysis) return;
+    setSaving(true);
+    setSavedMsg(null);
+    try {
+      const payload = {
+        store_id: member.store_id,
+        member_id: member.id,
+        customer_name: customerName.trim() || null,
+        mode,
+        total_score: totalScore(analysis),
+        items: analysis.items,
+      };
+      const { data, error } = await supabase.from("posture_records").insert(payload).select().single();
+      if (error) throw error;
+      setRecords((prev) => [data as PostureRecord, ...prev]);
+      setSavedMsg("保存しました");
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(e instanceof Error ? e.message : "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -314,6 +359,27 @@ export default function PostureView() {
         </div>
       )}
 
+      {/* 保存（顧客履歴へ） */}
+      {canSave && phase === "captured" && analysis && (
+        <div className="glass-card p-3">
+          <div className="flex items-end gap-2">
+            <label className="flex-1">
+              <span className="field-label">お客様名（任意・履歴の紐づけ用）</span>
+              <input
+                className="field-input"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="例: 山田 様"
+              />
+            </label>
+            <button className="btn-primary" onClick={saveRecord} disabled={saving}>
+              {saving ? "保存中…" : "結果を保存"}
+            </button>
+          </div>
+          {savedMsg && <p className="text-xs font-semibold text-emerald-600 mt-2">{savedMsg}</p>}
+        </div>
+      )}
+
       {/* Before / After */}
       {phase === "captured" && (
         <div className="p-3 rounded-xl border border-slate-200 bg-white/60">
@@ -370,6 +436,25 @@ export default function PostureView() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* 保存済みの分析（最近） */}
+      {records.length > 0 && (
+        <div className="glass-card p-4">
+          <p className="section-title mb-2">保存済みの分析（最近）</p>
+          <div className="flex flex-col gap-1.5">
+            {records.slice(0, 12).map((r) => (
+              <div key={r.id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-white">
+                <span className="text-[11px] font-bold text-slate-500 w-16 tabular-nums">{formatDateLabel(r.record_date)}</span>
+                <span className="text-xs text-slate-700 flex-1 truncate">{r.customer_name || "（無名）"}</span>
+                <span className="chip bg-slate-100 text-slate-500">{r.mode === "front" ? "正面" : "側面"}</span>
+                {r.total_score != null && (
+                  <span className="text-sm font-extrabold tabular-nums" style={{ color: scoreColor(r.total_score) }}>{r.total_score}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

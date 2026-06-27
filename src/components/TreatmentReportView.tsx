@@ -2,7 +2,9 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { todayJST } from "@/lib/posture";
-import type { Genre } from "@/lib/types";
+import { formatDateLabel } from "@/lib/date";
+import { createClient } from "@/lib/supabase/client";
+import type { Genre, Member, TreatmentReportRow } from "@/lib/types";
 import ReportRadar from "./ReportRadar";
 
 type ScoreKey = { key: string; label: string };
@@ -81,11 +83,18 @@ function trScoreColor(s: number): string {
 export default function TreatmentReportView({
   defaultStaff,
   genre = "seitai",
+  member,
+  canEdit = false,
+  initialReports = [],
 }: {
   defaultStaff: string;
   genre?: Genre;
+  member?: Member;
+  canEdit?: boolean;
+  initialReports?: TreatmentReportRow[];
 }) {
   const isEsthe = genre === "esthe";
+  const supabase = createClient();
   const SCORE_KEYS = isEsthe ? ESTHE_SCORES : SEITAI_SCORES;
   const MENU_OPTIONS = isEsthe ? ESTHE_MENUS : SEITAI_MENUS;
   const COMMENT_TEMPLATES = isEsthe ? ESTHE_TEMPLATES : SEITAI_TEMPLATES;
@@ -113,6 +122,12 @@ export default function TreatmentReportView({
   const [nextExpiry, setNextExpiry] = useState("");
 
   const captureRef = useRef<HTMLDivElement | null>(null);
+
+  // 保存・履歴
+  const [reports, setReports] = useState<TreatmentReportRow[]>(initialReports);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const canSave = !!member && canEdit;
 
   function readPhoto(file: File | null, set: (v: string | null) => void) {
     if (!file) return set(null);
@@ -152,6 +167,55 @@ export default function TreatmentReportView({
     setAfterPhoto(null);
     setNextOffer("");
     setNextExpiry("");
+  }
+
+  async function saveReport() {
+    if (!member) return;
+    setSaving(true);
+    setSavedMsg(null);
+    try {
+      const payload = {
+        store_id: member.store_id,
+        member_id: member.id,
+        customer_name: customerName.trim() || null,
+        visit_date: visitDate,
+        genre,
+        staff_name: staffName.trim() || null,
+        menus: activeMenus,
+        scores,
+        avg_score: Number(avgScore.toFixed(2)),
+        comment: comment.trim() || null,
+        care: activeStretches.map((s) => s.key),
+        care_note: stretchNote.trim() || null,
+        next_offer: nextOffer.trim() || null,
+        next_expiry: nextExpiry || null,
+      };
+      const { data, error } = await supabase.from("treatment_reports").insert(payload).select().single();
+      if (error) throw error;
+      setReports((prev) => [data as TreatmentReportRow, ...prev]);
+      setSavedMsg("保存しました");
+      setTimeout(() => setSavedMsg(null), 2500);
+    } catch (e) {
+      setSavedMsg(e instanceof Error ? e.message : "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function loadReport(r: TreatmentReportRow) {
+    setCustomerName(r.customer_name || "");
+    setVisitDate(r.visit_date);
+    setStaffName(r.staff_name || defaultStaff);
+    setComment(r.comment || "");
+    setStretchNote(r.care_note || "");
+    setNextOffer(r.next_offer || "");
+    setNextExpiry(r.next_expiry || "");
+    setMenuChecks(Object.fromEntries((r.menus || []).map((m) => [m, true])));
+    setStretchChecks(Object.fromEntries((r.care || []).map((k) => [k, true])));
+    if (r.scores) setScores((prev) => ({ ...prev, ...r.scores }));
+    setBeforePhoto(null);
+    setAfterPhoto(null);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const exportPng = useCallback(async () => {
@@ -342,13 +406,44 @@ export default function TreatmentReportView({
             </label>
           </div>
         </div>
+
+        {/* 保存済みレポート（顧客履歴） */}
+        {reports.length > 0 && (
+          <div className="glass-card p-4">
+            <p className="text-sm font-bold text-slate-800 mb-2">保存済みレポート（最近）</p>
+            <div className="flex flex-col gap-1.5">
+              {reports.slice(0, 12).map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => loadReport(r)}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-white hover:border-sise-200 hover:bg-sise-50/40 text-left transition-colors"
+                >
+                  <span className="text-[11px] font-bold text-slate-500 w-16 tabular-nums">{formatDateLabel(r.visit_date)}</span>
+                  <span className="text-xs text-slate-700 flex-1 truncate">{r.customer_name || "（無名）"}</span>
+                  {r.avg_score != null && (
+                    <span className="chip bg-sise-100 text-sise-700">平均 {Number(r.avg_score).toFixed(1)}</span>
+                  )}
+                  <span className="text-[10px] text-slate-400">読込</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* プレビュー */}
       <div className="space-y-3 lg:sticky lg:top-20 self-start">
-        <button className="btn-primary w-full" onClick={exportPng} disabled={exporting}>
-          {exporting ? "書き出し中…" : "PNG で保存"}
-        </button>
+        <div className="flex gap-2">
+          {canSave && (
+            <button className="btn-ghost flex-1" onClick={saveReport} disabled={saving}>
+              {saving ? "保存中…" : "履歴に保存"}
+            </button>
+          )}
+          <button className="btn-primary flex-1" onClick={exportPng} disabled={exporting}>
+            {exporting ? "書き出し中…" : "PNG で保存"}
+          </button>
+        </div>
+        {savedMsg && <p className="text-xs font-semibold text-emerald-600 text-center">{savedMsg}</p>}
 
         <div ref={captureRef} className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
           {/* ヘッダー */}

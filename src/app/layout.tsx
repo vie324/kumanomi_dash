@@ -23,7 +23,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className={noto.variable}>
-      <body className="min-h-screen font-sans">{children}</body>
+      {/* モバイル下部ナビ分の余白（md以上では不要） */}
+      <body className="min-h-screen font-sans pb-20 md:pb-0">{children}</body>
     </html>
   );
 }

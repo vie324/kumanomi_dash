@@ -1,51 +1,22 @@
 import Link from "next/link";
+import { TrendingUp, UserPlus, Target, CalendarCheck, ShoppingBag, Sparkles, Repeat, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { loadPageAccess } from "@/lib/admin-guard";
+import { monthStartJST } from "@/lib/date";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import DashboardCharts from "@/components/DashboardCharts";
 import StoreFilter from "@/components/StoreFilter";
 import DeptFilter from "@/components/DeptFilter";
+import KpiCard from "@/components/KpiCard";
 import { isOwnOnly } from "@/lib/permissions";
 import { type DailyReport, type Genre, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-function monthStartJST(): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const y = parts.find((p) => p.type === "year")!.value;
-  const m = parts.find((p) => p.type === "month")!.value;
-  return `${y}-${m}-01`;
-}
-
 function yen(n: number): string {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
-}
-
-function Kpi({
-  label,
-  value,
-  sub,
-  accent = "text-slate-900",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: string;
-}) {
-  return (
-    <div className="glass-card p-4">
-      <p className="text-[11px] text-slate-500 font-medium mb-1">{label}</p>
-      <p className={`text-2xl font-extrabold ${accent}`}>{value}</p>
-      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
-    </div>
-  );
 }
 
 export default async function DashboardPage({
@@ -270,19 +241,19 @@ export default async function DashboardPage({
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Kpi label="今月売上" value={yen(totalRevenue)} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} accent="text-sise-600" />
-          <Kpi label="新規" value={String(sumNew)} sub={`契約 ${sumContract} 件`} accent="text-blue-600" />
-          <Kpi label="新規→契約率" value={`${conversion.toFixed(0)}%`} accent="text-emerald-600" />
-          <Kpi label="次回予約率" value={`${resvRate.toFixed(0)}%`} sub={`既存 ${sumExisting} 件`} accent="text-purple-600" />
+          <KpiCard index={0} label="今月売上" value={totalRevenue} format={yen} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} tone="brand" icon={<TrendingUp size={16} />} />
+          <KpiCard index={1} label="新規" value={sumNew} sub={`契約 ${sumContract} 件`} tone="blue" icon={<UserPlus size={16} />} />
+          <KpiCard index={2} label="新規→契約率" value={conversion} format={(n) => n.toFixed(0)} suffix="%" tone="emerald" icon={<Target size={16} />} />
+          <KpiCard index={3} label="次回予約率" value={resvRate} format={(n) => n.toFixed(0)} suffix="%" sub={`既存 ${sumExisting} 件`} tone="purple" icon={<CalendarCheck size={16} />} />
         </div>
 
         {/* エステ追加KPI */}
         {showEstheKpis && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi label="物販売上" value={yen(sumProduct)} accent="text-orange-600" />
-            <Kpi label="新規物販売上" value={yen(sumNewProduct)} accent="text-blue-600" />
-            <Kpi label="継続契約" value={`${sumRenewal} 件`} accent="text-emerald-600" />
-            <Kpi label="その他" value={yen(sumOther)} accent="text-slate-600" />
+            <KpiCard index={0} label="物販売上" value={sumProduct} format={yen} tone="orange" icon={<ShoppingBag size={16} />} />
+            <KpiCard index={1} label="新規物販売上" value={sumNewProduct} format={yen} tone="blue" icon={<Sparkles size={16} />} />
+            <KpiCard index={2} label="継続契約" value={sumRenewal} suffix="件" tone="emerald" icon={<Repeat size={16} />} />
+            <KpiCard index={3} label="その他" value={sumOther} format={yen} tone="slate" icon={<Coins size={16} />} />
           </div>
         )}
 
@@ -294,7 +265,7 @@ export default async function DashboardPage({
               <span className="text-sm font-bold text-sise-600">{progress.toFixed(1)}%</span>
             </div>
             <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-sise-400 to-sise-600" style={{ width: `${progress}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-sise-400 to-sise-600 animate-grow-x" style={{ width: `${progress}%` }} />
             </div>
             <p className="text-xs text-slate-500 mt-2">
               {totalRevenue >= monthlyTarget
@@ -305,10 +276,10 @@ export default async function DashboardPage({
         )}
 
         {/* トレンド */}
-        <DashboardCharts trend={trend} />
+        <DashboardCharts trend={trend} accent={showEstheKpis ? "#97796d" : "#f97316"} />
 
         {/* メンバー別 */}
-        <div className="glass-card p-5">
+        <div className="glass-card card-hover p-5 animate-fade-in-up">
           <h2 className="text-sm font-bold text-slate-800 mb-3">メンバー別 成績（今月）</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -344,7 +315,7 @@ export default async function DashboardPage({
         </div>
 
         {/* 媒体別 契約状況（今月） */}
-        <div className="glass-card p-5">
+        <div className="glass-card card-hover p-5 animate-fade-in-up">
           <h2 className="text-sm font-bold text-slate-800 mb-3">媒体別 契約状況（今月）</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

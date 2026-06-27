@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { todayJST } from "@/lib/date";
 import {
   SUBSCRIPTION_PLANS,
   TICKET_PLANS,
@@ -26,15 +27,6 @@ type MemoDraft = {
   customer_attr: string;
   reason: string;
 };
-
-function todayJST(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
 
 const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   outcome,
@@ -123,9 +115,9 @@ export default function ReportForm({
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
-  const resetForm = useCallback(() => {
+  // 入力欄のみクリア（勤務店舗・日付は維持＝店舗切替で別の日報を扱える）
+  const clearFields = useCallback(() => {
     setReportId(null);
-    setWorkStoreId(member.store_id);
     setRevenue(0);
     setProductSales(0);
     setNewProductSales(0);
@@ -139,24 +131,25 @@ export default function ReportForm({
     setReflection("");
     setTomorrowAction("");
     setMemos([]);
-  }, [member.store_id]);
+  }, []);
 
   const loadExisting = useCallback(
-    async (date: string) => {
+    async (date: string, sid: string) => {
       setLoading(true);
       setFeedback(null);
       setMessage(null);
       setError(null);
+      // 勤務店舗ごとに1件（同日に自店＋ヘルプ先の2本を扱えるよう store_id でも絞る）
       const { data: report } = await supabase
         .from("daily_reports")
         .select("*")
         .eq("member_id", member.id)
         .eq("report_date", date)
+        .eq("store_id", sid)
         .maybeSingle();
 
       if (report) {
         setReportId(report.id);
-        setWorkStoreId(report.store_id || member.store_id);
         setRevenue(Number(report.revenue) || 0);
         setProductSales(Number(report.product_sales) || 0);
         setNewProductSales(Number(report.new_product_sales) || 0);
@@ -203,16 +196,16 @@ export default function ReportForm({
           .maybeSingle();
         if (fb) setFeedback(fb as FeedbackData);
       } else {
-        resetForm();
+        clearFields();
       }
       setLoading(false);
     },
-    [member.id, member.store_id, supabase, resetForm]
+    [member.id, supabase, menuPlans, clearFields]
   );
 
   useEffect(() => {
-    loadExisting(reportDate);
-  }, [reportDate, loadExisting]);
+    loadExisting(reportDate, workStoreId);
+  }, [reportDate, workStoreId, loadExisting]);
 
   const updateMemo = (i: number, patch: Partial<MemoDraft>) =>
     setMemos((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
@@ -249,7 +242,7 @@ export default function ReportForm({
       };
       const { data: saved, error: saveErr } = await supabase
         .from("daily_reports")
-        .upsert(payload, { onConflict: "member_id,report_date" })
+        .upsert(payload, { onConflict: "member_id,report_date,store_id" })
         .select()
         .single();
       if (saveErr) throw saveErr;
