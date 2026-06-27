@@ -58,8 +58,22 @@ export function defaultScope(role: Role): Scope {
   }
 }
 
+// スコープのランク（広い順）。役割が要求する最小スコープを下回らせない。
+const SCOPE_RANK: Record<Scope, number> = {
+  all: 4,
+  department: 3,
+  assigned: 2,
+  store: 1,
+  own: 0,
+};
+
 export function memberScope(member: Pick<Member, "role" | "scope">): Scope {
-  return member.scope ?? defaultScope(member.role);
+  const fallback = defaultScope(member.role);
+  if (!member.scope) return fallback;
+  // 役割が保証する範囲より狭い scope が保存されていても、役割の既定まで広げる。
+  // （管理者(owner)なのに scope=store のまま等のデータ不整合で
+  //   「各店舗が見れない」バグを防ぐ。手動で狭めたい場合は役割を下げる運用）
+  return SCOPE_RANK[member.scope] >= SCOPE_RANK[fallback] ? member.scope : fallback;
 }
 
 // 指定リソースに対する member のレベルを取得
