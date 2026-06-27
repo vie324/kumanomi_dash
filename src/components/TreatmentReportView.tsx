@@ -131,8 +131,17 @@ export default function TreatmentReportView({
 
   function readPhoto(file: File | null, set: (v: string | null) => void) {
     if (!file) return set(null);
+    // 大きすぎる画像は 2x キャンバス書き出しでメモリを圧迫するため上限を設ける
+    if (file.size > 12 * 1024 * 1024) {
+      alert("画像が大きすぎます（12MB以下を選択してください）。");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => set(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => {
+      set(null);
+      alert("画像の読み込みに失敗しました。");
+    };
     reader.readAsDataURL(file);
   }
 

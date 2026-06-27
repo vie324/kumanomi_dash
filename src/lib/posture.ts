@@ -142,34 +142,39 @@ export function analyzeSide(lm: Landmark[]): PostureAnalysis | null {
   const headFwd = (ear.x - sh.x) / shHipDist;
   // 巻き肩・猫背: 肩を頂点に「耳-肩-腰」の角度（180°に近いほど直立=良好）
   const rollAngle = angleDeg(sh, ear, hip);
-  const pelvicAngle = knee ? angleDeg(hip, sh, knee) : 175;
+  // 膝が検出できているときだけ骨盤の前後傾を評価（欠損時に満点を捏造しない）
+  const hasKnee = !!knee && (knee.visibility ?? 0) >= 0.5;
 
-  return {
-    items: [
-      {
-        key: "head-fwd",
-        label: "頭の前方偏位",
-        value: (headFwd * 100).toFixed(1) + "%",
-        score: linearScore(Math.max(0, headFwd) * 100, 18),
-        detail: headFwd < 0.02 ? "良好" : headFwd < 0.08 ? "軽度の前方偏位" : "ストレートネック傾向",
-      },
-      {
-        key: "roll",
-        label: "巻き肩・猫背",
-        value: rollAngle.toFixed(0) + "°",
-        score: linearScore(180 - rollAngle, 35),
-        detail: rollAngle >= 160 ? "良好" : rollAngle >= 145 ? "軽度の巻き肩" : "巻き肩傾向",
-      },
-      {
-        key: "pelvic",
-        label: "骨盤の前後傾",
-        value: pelvicAngle.toFixed(0) + "°",
-        score: linearScore(Math.abs(pelvicAngle - 175), 18),
-        detail:
-          Math.abs(pelvicAngle - 175) < 5 ? "正常範囲" : pelvicAngle > 175 ? "後傾傾向" : "前傾傾向",
-      },
-    ],
-  };
+  const items: PostureItem[] = [
+    {
+      key: "head-fwd",
+      label: "頭の前方偏位",
+      value: (headFwd * 100).toFixed(1) + "%",
+      score: linearScore(Math.max(0, headFwd) * 100, 18),
+      detail: headFwd < 0.02 ? "良好" : headFwd < 0.08 ? "軽度の前方偏位" : "ストレートネック傾向",
+    },
+    {
+      key: "roll",
+      label: "巻き肩・猫背",
+      value: rollAngle.toFixed(0) + "°",
+      score: linearScore(180 - rollAngle, 35),
+      detail: rollAngle >= 160 ? "良好" : rollAngle >= 145 ? "軽度の巻き肩" : "巻き肩傾向",
+    },
+  ];
+
+  if (hasKnee) {
+    const pelvicAngle = angleDeg(hip, sh, knee!);
+    items.push({
+      key: "pelvic",
+      label: "骨盤の前後傾",
+      value: pelvicAngle.toFixed(0) + "°",
+      score: linearScore(Math.abs(pelvicAngle - 175), 18),
+      detail:
+        Math.abs(pelvicAngle - 175) < 5 ? "正常範囲" : pelvicAngle > 175 ? "後傾傾向" : "前傾傾向",
+    });
+  }
+
+  return { items };
 }
 
 export function totalScore(a: PostureAnalysis | null): number | null {
