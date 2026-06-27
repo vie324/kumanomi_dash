@@ -51,7 +51,8 @@ export default async function AppHeader({
     return n.needEdit ? canEdit(matrix, member, n.resource) : can(matrix, member, n.resource, "view");
   });
   const nav = admin ? [...visibleNav, { href: "/admin/members", label: "権限管理" }] : visibleNav;
-  const brand = GENRE_BRAND[member.genre];
+  // genre が NULL/想定外でも落ちないよう既定（整体）にフォールバック
+  const brand = GENRE_BRAND[member.genre] ?? GENRE_BRAND.seitai;
   return (
     <header className="sticky top-0 z-30 bg-white/75 backdrop-blur-xl border-b border-white/60 shadow-[0_2px_16px_-12px_rgba(15,23,42,0.3)]">
       <ThemeApplier genre={member.genre} />
