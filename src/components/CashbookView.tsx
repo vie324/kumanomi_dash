@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { todayJST, monthJST, shiftMonth, formatMonthLabel, formatDateLabel } from "@/lib/date";
+import { toCsv, downloadCsv } from "@/lib/csv";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -251,6 +252,24 @@ export default function CashbookView({
     setCashCheckAmount("");
   }
 
+  function exportCsv() {
+    const headers = ["日付", "区分", "カテゴリ", "金額", "支払方法", "顧客名", "施術回数", "記録者", "摘要"];
+    const rows = [...monthEntries]
+      .reverse()
+      .map((e) => [
+        e.entry_date,
+        e.type === "income" ? "入金" : "出金",
+        e.category,
+        Number(e.amount),
+        paymentMethodLabel(e.payment_method),
+        e.customer_name || "",
+        e.treatment_count || 0,
+        e.recorder || "",
+        e.description || "",
+      ]);
+    downloadCsv(`cashbook_${activeStore?.name || storeId}_${viewMonth}.csv`, toCsv(headers, rows));
+  }
+
   const categories = form.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const cashCheckDiff = cashCheckAmount ? (parseInt(cashCheckAmount, 10) || 0) - cashBalance : null;
 
@@ -464,7 +483,7 @@ export default function CashbookView({
 
       {/* 月ナビ + 一覧 */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <button className="p-2 rounded-xl hover:bg-sise-50 text-slate-500" onClick={() => changeMonth(-1)}>‹</button>
           <div className="text-center">
             <h2 className="text-lg font-bold text-slate-800">{formatMonthLabel(viewMonth)}</h2>
@@ -472,6 +491,13 @@ export default function CashbookView({
           </div>
           <button className="p-2 rounded-xl hover:bg-sise-50 text-slate-500" onClick={() => changeMonth(1)}>›</button>
         </div>
+        {monthEntries.length > 0 && (
+          <div className="flex justify-end mb-3">
+            <button className="text-[11px] font-semibold text-slate-500 hover:text-sise-600 px-2.5 py-1 rounded-lg hover:bg-sise-50 transition-colors" onClick={exportCsv}>
+              ⬇ CSV出力
+            </button>
+          </div>
+        )}
 
         {dailyGroups.length === 0 && (
           <div className="text-center py-10 text-slate-400">
