@@ -5,6 +5,17 @@ import AnimatedNumber from "./AnimatedNumber";
 
 type Tone = "brand" | "blue" | "emerald" | "purple" | "orange" | "slate" | "rose" | "amber";
 
+// 数値フォーマットは「関数」ではなく「トークン文字列」で受け取る。
+// Server Component から Client Component へ関数 prop は渡せない（RSCがシリアライズ不可で
+// 「Functions cannot be passed directly to Client Components」エラーになり画面全体が落ちる）。
+// そのためトークンを境界越しに渡し、クライアント側で実関数へ解決する。
+export type KpiFormat = "int" | "yen" | "fixed0";
+const FORMATTERS: Record<KpiFormat, (n: number) => string> = {
+  int: (n) => Math.round(n).toLocaleString("ja-JP"),
+  yen: (n) => "¥" + Math.round(n).toLocaleString("ja-JP"),
+  fixed0: (n) => n.toFixed(0),
+};
+
 const TONE: Record<Tone, { text: string; badge: string }> = {
   brand: { text: "text-sise-600", badge: "bg-sise-100 text-sise-600" },
   blue: { text: "text-blue-600", badge: "bg-blue-100 text-blue-600" },
@@ -30,7 +41,7 @@ export default function KpiCard({
 }: {
   label: string;
   value: number;
-  format?: (n: number) => string;
+  format?: KpiFormat;
   suffix?: string;
   sub?: ReactNode;
   icon?: ReactNode;
@@ -40,6 +51,7 @@ export default function KpiCard({
   delta?: number | null;
 }) {
   const t = TONE[tone];
+  const fmt = format ? FORMATTERS[format] : undefined;
   const delay = Math.min(index, 12) * 55;
   const hasDelta = delta !== undefined;
   const up = (delta ?? 0) >= 0;
@@ -55,7 +67,7 @@ export default function KpiCard({
         )}
       </div>
       <p className={`mt-1 text-2xl font-extrabold tracking-tight ${t.text}`}>
-        <AnimatedNumber value={value} format={format} />
+        <AnimatedNumber value={value} format={fmt} />
         {suffix && <span className="text-lg font-bold ml-0.5">{suffix}</span>}
       </p>
       <div className="flex items-center gap-1.5 mt-0.5">
