@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentMember, getPermissionMatrix } from "@/lib/auth";
+import { getAccessibleStoreIds, getCurrentMember, getPermissionMatrix } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   can,
@@ -13,6 +13,8 @@ import {
 } from "@/lib/permissions";
 import type { Member, Role, Scope } from "@/lib/types";
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
 // 共通: staff_admin を manage できるユーザーか検証
 async function assertStaffAdmin() {
   const member = await getCurrentMember();
@@ -22,6 +24,34 @@ async function assertStaffAdmin() {
     throw new Error("forbidden");
   }
   return member;
+}
+
+// スコープIDOR防止: 対象店舗が actor の管轄（アクセス可能店舗）内か検証。
+// null = 全社（owner 等）は無制限。
+async function assertCanManageStore(actor: Member, storeId: string) {
+  const ids = await getAccessibleStoreIds(actor);
+  if (ids === null) return;
+  if (!ids.includes(storeId)) {
+    throw new Error("管轄外の店舗に対する操作はできません。");
+  }
+}
+
+// 対象メンバーが actor の管轄内かつ自分以下の役割かを検証し、対象行を返す。
+async function assertCanManageMember(actor: Member, memberId: string, admin: AdminClient) {
+  const { data } = await admin
+    .from("members")
+    .select("store_id, role")
+    .eq("id", memberId)
+    .maybeSingle();
+  const t = data as { store_id: string; role: Role } | null;
+  if (!t) throw new Error("対象メンバーが見つかりません。");
+  // 自分自身（自店）は常に管轄内。それ以外はスコープを検証。
+  if (memberId !== actor.id) await assertCanManageStore(actor, t.store_id);
+  // 自分より上位のメンバーは操作不可
+  if (memberId !== actor.id && roleRank(t.role) > roleRank(actor.role)) {
+    throw new Error("自分より上位のメンバーは操作できません。");
+  }
+  return t;
 }
 
 // 権限昇格ガード: actor は自分の役割/データ範囲を超える付与をできない。
@@ -70,14 +100,9 @@ export async function updateMemberRole(args: {
 }) {
   const actor = await assertStaffAdmin();
   const admin = createAdminClient();
-  // 対象の現在の役割（自己昇格チェック用）
-  const { data: targetRow } = await admin
-    .from("members")
-    .select("role")
-    .eq("id", args.memberId)
-    .maybeSingle();
-  const prevRole = (targetRow as { role: Role } | null)?.role;
-  assertAssignable(actor, args.role, args.scope, { targetId: args.memberId, prevRole });
+  // 対象が管轄内かつ自分以下かを検証し、現在の役割を取得（自己昇格チェック用）
+  const target = await assertCanManageMember(actor, args.memberId, admin);
+  assertAssignable(actor, args.role, args.scope, { targetId: args.memberId, prevRole: target.role });
   const { error } = await admin
     .from("members")
     .update({ role: args.role, scope: args.scope, department_id: args.departmentId })
@@ -88,8 +113,11 @@ export async function updateMemberRole(args: {
 
 // マネージャーの担当店舗を置き換え
 export async function setMemberStores(memberId: string, storeIds: string[]) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const admin = createAdminClient();
+  await assertCanManageMember(actor, memberId, admin);
+  // 自分の管轄外の店舗を担当に割り当てることはできない
+  for (const sid of storeIds) await assertCanManageStore(actor, sid);
   const { error: delErr } = await admin
     .from("member_store_access")
     .delete()
@@ -120,6 +148,8 @@ export async function createStaffMember(args: {
   const role: Role = args.role ?? "staff";
   // 自分より上位の役割でスタッフを作成することはできない
   assertAssignable(actor, role, role === "staff" ? "store" : null);
+  // 管轄外の店舗にメンバーを作成することはできない
+  await assertCanManageStore(actor, args.storeId);
   if (!name) throw new Error("氏名を入力してください");
   if (!email) throw new Error("メールアドレスを入力してください");
   if (!args.password || args.password.length < 6) {
@@ -180,6 +210,8 @@ export async function deleteStaffMember(memberId: string) {
     throw new Error("自分自身は削除できません");
   }
   const admin = createAdminClient();
+  // 対象が管轄内かつ自分以下かを検証
+  await assertCanManageMember(current, memberId, admin);
   // 対象メンバーの auth_user_id を取得
   const { data: target, error: fetchErr } = await admin
     .from("members")

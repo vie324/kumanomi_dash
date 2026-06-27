@@ -21,6 +21,10 @@ export default async function ConciergePage() {
     .maybeSingle();
   const store = (storeRow as Store) ?? null;
 
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="診断・提案の閲覧権限がありません。" />;
+  }
+
   // エステ専用
   if (member.genre !== "esthe") {
     return <PermissionDenied member={member} store={store} message="この機能はエステ業態専用です。" />;

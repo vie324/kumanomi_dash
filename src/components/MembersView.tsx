@@ -9,6 +9,7 @@ import {
   type Customer,
   type CustomerTicket,
   type Member,
+  type Store,
   type TicketPlan,
   type TicketStatus,
 } from "@/lib/types";
@@ -28,12 +29,14 @@ type Tab = "tickets" | "customers" | "plans";
 
 export default function MembersView({
   member,
+  stores = [],
   initialCustomers,
   initialPlans,
   initialTickets,
   canEdit = true,
 }: {
   member: Member;
+  stores?: Store[];
   initialCustomers: Customer[];
   initialPlans: TicketPlan[];
   initialTickets: CustomerTicket[];
@@ -46,6 +49,17 @@ export default function MembersView({
   const [tickets, setTickets] = useState<CustomerTicket[]>(initialTickets);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // 店舗選択（複数店舗が見えるユーザー向け）。登録・表示は選択店舗にスコープ。
+  const storeOptions = stores;
+  const initialStoreId =
+    storeOptions.find((s) => s.id === member.store_id)?.id ?? storeOptions[0]?.id ?? member.store_id;
+  const [storeId, setStoreId] = useState(initialStoreId);
+
+  // 選択店舗にスコープしたデータ
+  const sCustomers = useMemo(() => customers.filter((c) => c.store_id === storeId), [customers, storeId]);
+  const sPlans = useMemo(() => plans.filter((p) => p.store_id === storeId), [plans, storeId]);
+  const sTickets = useMemo(() => tickets.filter((t) => t.store_id === storeId), [tickets, storeId]);
 
   // フィルタ
   const [filter, setFilter] = useState<"all" | TicketStatus>("active");
@@ -78,7 +92,7 @@ export default function MembersView({
     setError(null);
     try {
       const payload = {
-        store_id: member.store_id,
+        store_id: storeId,
         plan_id: tForm.plan_id,
         customer_name: tForm.customer_name.trim(),
         customer_phone: tForm.customer_phone || null,
@@ -162,7 +176,7 @@ export default function MembersView({
       const { data, error } = await supabase
         .from("customers")
         .insert({
-          store_id: member.store_id,
+          store_id: storeId,
           name: cForm.name.trim(),
           phone: cForm.phone || null,
           note: cForm.note || null,
@@ -199,7 +213,7 @@ export default function MembersView({
       const { data, error } = await supabase
         .from("ticket_plans")
         .insert({
-          store_id: member.store_id,
+          store_id: storeId,
           name: pForm.name.trim(),
           sessions: parseInt(pForm.sessions, 10) || 0,
           price: parseInt(pForm.price, 10) || 0,
@@ -228,17 +242,17 @@ export default function MembersView({
     setPlans((prev) => prev.filter((x) => x.id !== p.id));
   }
 
-  // KPI
+  // KPI（選択店舗）
   const stats = useMemo(() => {
-    const active = tickets.filter((t) => ticketStatus(t) === "active" || ticketStatus(t) === "expiring");
-    const expiring = tickets.filter((t) => ticketStatus(t) === "expiring");
+    const active = sTickets.filter((t) => ticketStatus(t) === "active" || ticketStatus(t) === "expiring");
+    const expiring = sTickets.filter((t) => ticketStatus(t) === "expiring");
     const remaining = active.reduce((s, t) => s + t.remaining_sessions, 0);
-    const revenue = tickets.reduce((s, t) => s + Number(t.price || 0), 0);
+    const revenue = sTickets.reduce((s, t) => s + Number(t.price || 0), 0);
     return { active: active.length, expiring: expiring.length, remaining, revenue };
-  }, [tickets]);
+  }, [sTickets]);
 
   const filteredTickets = useMemo(() => {
-    let list = tickets;
+    let list = sTickets;
     if (filter !== "all") list = list.filter((t) => ticketStatus(t) === filter);
     if (query) {
       const q = query.toLowerCase();
@@ -247,12 +261,23 @@ export default function MembersView({
       );
     }
     return list;
-  }, [tickets, filter, query]);
+  }, [sTickets, filter, query]);
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl font-extrabold text-slate-900">会員・回数券</h1>
+        {storeOptions.length > 1 && (
+          <select
+            className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-sise-100"
+            value={storeId}
+            onChange={(e) => setStoreId(e.target.value)}
+          >
+            {storeOptions.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* KPI */}
@@ -326,7 +351,7 @@ export default function MembersView({
                   <span className="field-label">お客様名 *</span>
                   <input className="field-input" value={tForm.customer_name} onChange={(e) => setTForm((p) => ({ ...p, customer_name: e.target.value }))} list="customer-names" />
                   <datalist id="customer-names">
-                    {customers.map((c) => <option key={c.id} value={c.name} />)}
+                    {sCustomers.map((c) => <option key={c.id} value={c.name} />)}
                   </datalist>
                 </label>
                 <label className="block">
@@ -337,7 +362,7 @@ export default function MembersView({
                   <span className="field-label">プラン *</span>
                   <select className="field-input" value={tForm.plan_id} onChange={(e) => onPlanChange(e.target.value)}>
                     <option value="">-- 選択 --</option>
-                    {plans.filter((p) => p.active).map((p) => (
+                    {sPlans.filter((p) => p.active).map((p) => (
                       <option key={p.id} value={p.id}>{p.name}（{p.sessions}回 / {yen(p.price)}）</option>
                     ))}
                   </select>
@@ -451,7 +476,7 @@ export default function MembersView({
                 </tr>
               </thead>
               <tbody>
-                {customers.map((c) => (
+                {sCustomers.map((c) => (
                   <tr key={c.id} className="border-b border-slate-50">
                     <td className="py-2.5 px-3 font-semibold text-slate-700">{c.name}</td>
                     <td className="py-2.5 px-3 text-slate-500">{c.phone || "—"}</td>
@@ -463,7 +488,7 @@ export default function MembersView({
                     </td>
                   </tr>
                 ))}
-                {customers.length === 0 && (
+                {sCustomers.length === 0 && (
                   <tr><td colSpan={4} className="py-8 text-center text-slate-400 text-sm">会員がまだ登録されていません。</td></tr>
                 )}
               </tbody>
@@ -503,7 +528,7 @@ export default function MembersView({
           )}
 
           <div className="space-y-2">
-            {plans.map((p) => (
+            {sPlans.map((p) => (
               <div key={p.id} className="glass-card p-4 flex items-center justify-between">
                 <div>
                   <span className="text-sm font-bold text-slate-800">{p.name}</span>
@@ -514,7 +539,7 @@ export default function MembersView({
                 )}
               </div>
             ))}
-            {plans.length === 0 && (
+            {sPlans.length === 0 && (
               <div className="glass-card p-8 text-center text-sm text-slate-400">プランがありません。</div>
             )}
           </div>

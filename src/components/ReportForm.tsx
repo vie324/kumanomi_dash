@@ -108,6 +108,7 @@ export default function ReportForm({
 
   const [reportId, setReportId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,17 +137,27 @@ export default function ReportForm({
   const loadExisting = useCallback(
     async (date: string, sid: string) => {
       setLoading(true);
+      setLoadFailed(false);
       setFeedback(null);
       setMessage(null);
       setError(null);
       // 勤務店舗ごとに1件（同日に自店＋ヘルプ先の2本を扱えるよう store_id でも絞る）
-      const { data: report } = await supabase
+      const { data: report, error: loadErr } = await supabase
         .from("daily_reports")
         .select("*")
         .eq("member_id", member.id)
         .eq("report_date", date)
         .eq("store_id", sid)
         .maybeSingle();
+
+      // 読み込み失敗時は安全側に：フォームをクリアせず保存も止める
+      // （失敗を「日報なし」と誤認して既存日報を上書きするのを防ぐ）
+      if (loadErr) {
+        setError("日報の読み込みに失敗しました。通信状況を確認して再読み込みしてください。");
+        setLoadFailed(true);
+        setLoading(false);
+        return;
+      }
 
       if (report) {
         setReportId(report.id);
@@ -249,10 +260,11 @@ export default function ReportForm({
       const rid: string = saved.id;
       setReportId(rid);
 
-      // メモを置き換え
+      // メモを置き換え。明示的に追加された記録（won/lost とも）はすべて保存する。
+      // ※ 以前は理由・氏名が未入力の lost を黙って捨てており、「未契約の新規」件数が
+      //   欠落して新規→契約率などの集計が狂う原因になっていた。
       await supabase.from("contract_memos").delete().eq("report_id", rid);
       const memoRows = memos
-        .filter((m) => m.outcome === "won" || m.reason || m.customer_name)
         .map((m) => {
           const won = m.outcome === "won";
           const amt = m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null;
@@ -713,10 +725,10 @@ export default function ReportForm({
       {error && <p className="text-sm text-rose-600 font-semibold">{error}</p>}
 
       <div className="flex flex-col sm:flex-row gap-3 sticky bottom-3 z-10">
-        <button className="btn-ghost flex-1" onClick={() => handleSave(false)} disabled={saving}>
+        <button className="btn-ghost flex-1" onClick={() => handleSave(false)} disabled={saving || loadFailed}>
           {saving ? "保存中…" : "保存のみ"}
         </button>
-        <button className="btn-primary flex-1" onClick={() => handleSave(true)} disabled={saving || feedbackLoading}>
+        <button className="btn-primary flex-1" onClick={() => handleSave(true)} disabled={saving || feedbackLoading || loadFailed}>
           {feedbackLoading ? "AI分析中…" : "保存してAIフィードバック"}
         </button>
       </div>
