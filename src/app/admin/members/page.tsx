@@ -26,7 +26,8 @@ export default async function MembersAdminPage() {
   const [{ data: storeRow }, { data: members }, { data: stores }, { data: departments }, { data: access }] =
     await Promise.all([
       supabase.from("stores").select("*").eq("id", member.store_id).maybeSingle(),
-      supabase.from("members").select("*").order("name", { ascending: true }),
+      // 無効化（ソフトデリート）済みのスタッフは一覧から除外
+      supabase.from("members").select("*").eq("active", true).order("name", { ascending: true }),
       supabase.from("stores").select("*").order("name", { ascending: true }),
       supabase.from("departments").select("*").order("name", { ascending: true }),
       supabase.from("member_store_access").select("member_id, store_id"),
@@ -36,6 +37,36 @@ export default async function MembersAdminPage() {
   for (const a of (access as { member_id: string; store_id: string }[]) || []) {
     (accessMap[a.member_id] ||= []).push(a.store_id);
   }
+
+  // 最近の操作監査ログ（staff_admin manage のみ閲覧可）
+  type AuditRow = { id: string; actor_name: string | null; action: string; target_type: string | null; created_at: string };
+  const { data: auditRows } = await supabase
+    .from("audit_log")
+    .select("id, actor_name, action, target_type, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const audit = (auditRows as AuditRow[]) || [];
+  const ACTION_LABELS: Record<string, string> = {
+    "member.role_update": "役割・範囲を変更",
+    "member.stores_set": "担当店舗を変更",
+    "member.create": "スタッフを追加",
+    "member.deactivate": "スタッフを無効化",
+    "role_permission.update": "権限マトリクスを変更",
+    "media_channel.add": "媒体を追加",
+    "media_channel.update": "媒体を更新",
+    "media_channel.delete": "媒体を削除",
+    "menu_plan.add": "メニューを追加",
+    "menu_plan.update": "メニューを更新",
+    "menu_plan.delete": "メニューを削除",
+  };
+  const fmtTs = (iso: string) =>
+    new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(iso));
 
   return (
     <>
@@ -59,6 +90,22 @@ export default async function MembersAdminPage() {
           currentMemberId={member.id}
           defaultStoreId={member.store_id}
         />
+
+        {/* 操作監査ログ（最近20件） */}
+        {audit.length > 0 && (
+          <details className="glass-card p-4">
+            <summary className="text-sm font-bold text-slate-800 cursor-pointer">操作ログ（最近の管理操作）</summary>
+            <div className="mt-3 flex flex-col gap-1">
+              {audit.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 text-xs py-1.5 border-b border-slate-50 last:border-0">
+                  <span className="text-slate-400 tabular-nums w-20 shrink-0">{fmtTs(a.created_at)}</span>
+                  <span className="font-semibold text-slate-700 shrink-0">{a.actor_name || "—"}</span>
+                  <span className="text-slate-500">{ACTION_LABELS[a.action] || a.action}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </main>
     </>
   );
