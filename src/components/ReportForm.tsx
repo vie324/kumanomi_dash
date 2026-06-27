@@ -20,7 +20,8 @@ type MemoDraft = {
   sessions: string; // 回数。メニュー選択で自動補完、手入力も可
   contract_type: ContractType | null;
   contract_plan: number | null;
-  menu_plan_id: string; // エステ: 契約したメニュー（グループ）
+  menu_plan_id: string; // エステ: 契約したメニュー（UI上はグループキー）
+  menu_label: string; // 保存済みのメニュー名（プラン解決不可でも保持）
   customer_name: string;
   customer_attr: string;
   reason: string;
@@ -43,6 +44,7 @@ const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   contract_type: outcome === "won" ? "ticket" : null,
   contract_plan: outcome === "won" ? TICKET_PLANS[0] : null,
   menu_plan_id: "",
+  menu_label: "",
   customer_name: "",
   customer_attr: "",
   reason: "",
@@ -182,10 +184,12 @@ export default function ReportForm({
             contract_type: m.contract_type ?? (m.outcome === "won" ? "ticket" : null),
             contract_plan: m.contract_plan ?? (m.outcome === "won" ? TICKET_PLANS[0] : null),
             // DB は実 plan(UUID)。UI はグループキー（section|group）に戻す。
+            // 解決できなくても menu_label は保持して表示・再保存できるようにする。
             menu_plan_id: (() => {
               const p = m.menu_plan_id ? menuPlans.find((x) => x.id === m.menu_plan_id) : undefined;
               return p ? `${p.section}|${p.group_name}` : "";
             })(),
+            menu_label: m.menu_label || "",
             customer_name: m.customer_name || "",
             customer_attr: m.customer_attr || "",
             reason: m.reason || "",
@@ -261,10 +265,13 @@ export default function ReportForm({
           const amt = m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null;
           const sess = m.sessions ? Math.max(0, parseInt(m.sessions, 10) || 0) : null;
           // menu_plan_id（UI）はグループキー。保存時は実在する plan(UUID) に解決。
+          // グループが解決できない場合（プラン無効化/別店舗スコープ等）は、
+          // 既存の menu_label を温存し、リンク/名称を消さない。
           const grp = isEsthe && m.menu_plan_id ? groupById.get(m.menu_plan_id) : undefined;
           const resolvedPlan = grp
             ? grp.plans.find((p) => p.sessions === sess) ?? grp.plans[0]
             : undefined;
+          const menuLabel = won && isEsthe ? (grp ? grp.groupName : m.menu_label || null) : null;
           return {
             report_id: rid,
             store_id: workStoreId,
@@ -276,7 +283,7 @@ export default function ReportForm({
             menu_sessions: won ? sess : null,
             // エステ: メニュー（グループ）連携。整体: 回数券/定額。
             menu_plan_id: won && resolvedPlan ? resolvedPlan.id : null,
-            menu_label: won && grp ? grp.groupName : null,
+            menu_label: menuLabel,
             contract_type: won && !isEsthe ? m.contract_type : null,
             contract_plan: won && !isEsthe ? m.contract_plan : null,
             customer_name: m.customer_name || null,
@@ -350,15 +357,19 @@ export default function ReportForm({
     return hit?.price ?? null;
   }
 
-  // メニュー選択時に 回数/金額 を自動補完（手入力で上書き可）
+  // メニュー選択時に 回数/金額 を自動補完（手入力で上書き可）。
+  // 既に金額が入力済み（単価媒体の手入力など）の場合は上書きしない。
   function onSelectMenu(i: number, groupKey: string) {
+    const cur = memos[i];
     const sess = sessionOptions(groupKey);
     const firstSess = sess.length > 0 ? sess[0] : null;
     const price = priceForSessions(groupKey, firstSess);
+    const keepAmount = cur?.amount && cur.amount.trim() !== "";
     updateMemo(i, {
       menu_plan_id: groupKey,
+      menu_label: groupById.get(groupKey)?.groupName ?? "",
       sessions: firstSess != null ? String(firstSess) : "",
-      amount: price != null ? String(price) : "",
+      ...(keepAmount ? {} : { amount: price != null ? String(price) : "" }),
     });
   }
   function onSelectSessions(i: number, groupKey: string, sessions: string) {
@@ -579,7 +590,14 @@ export default function ReportForm({
                           ))}
                         </optgroup>
                       ))}
+                      {/* 解決できない保存済みメニュー（無効化/別店舗等）も名称を保持 */}
+                      {!m.menu_plan_id && m.menu_label && (
+                        <option value="">{m.menu_label}（登録外）</option>
+                      )}
                     </select>
+                    {!m.menu_plan_id && m.menu_label && (
+                      <p className="text-[11px] text-slate-400 mt-1">保存済み: {m.menu_label}</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block">
