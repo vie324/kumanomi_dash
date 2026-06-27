@@ -25,7 +25,7 @@ const STATUS_STYLE: Record<TicketStatus, string> = {
   completed: "bg-slate-100 text-slate-500",
 };
 
-type Tab = "tickets" | "customers" | "plans";
+type Tab = "tickets" | "followup" | "customers" | "plans";
 
 export default function MembersView({
   member,
@@ -83,7 +83,8 @@ export default function MembersView({
   }
 
   async function addTicket() {
-    if (!tForm.customer_name.trim() || !tForm.plan_id) {
+    const name = tForm.customer_name.trim();
+    if (!name || !tForm.plan_id) {
       setError("お客様名とプランを選択してください。");
       return;
     }
@@ -91,10 +92,27 @@ export default function MembersView({
     setBusy(true);
     setError(null);
     try {
+      // 顧客マスタに自動リンク（同店舗・同名が無ければ新規作成）
+      let customerId: string | null = null;
+      const existing = customers.find((c) => c.store_id === storeId && c.name === name);
+      if (existing) {
+        customerId = existing.id;
+      } else {
+        const { data: cust, error: cErr } = await supabase
+          .from("customers")
+          .insert({ store_id: storeId, name, phone: tForm.customer_phone || null })
+          .select()
+          .single();
+        if (cErr) throw cErr;
+        customerId = (cust as Customer).id;
+        setCustomers((prev) => [...prev, cust as Customer].sort((a, b) => a.name.localeCompare(b.name, "ja")));
+      }
+
       const payload = {
         store_id: storeId,
         plan_id: tForm.plan_id,
-        customer_name: tForm.customer_name.trim(),
+        customer_id: customerId,
+        customer_name: name,
         customer_phone: tForm.customer_phone || null,
         plan_name: plan?.name || null,
         total_sessions: plan?.sessions || 0,
@@ -263,6 +281,40 @@ export default function MembersView({
     return list;
   }, [sTickets, filter, query]);
 
+  // フォローアップ対象（期限切れ／期限間近／残りわずか）。urgency が小さいほど優先。
+  const followups = useMemo(() => {
+    const items = sTickets
+      .map((t) => {
+        const st = ticketStatus(t);
+        if (st === "expired") return { t, reason: "期限切れ", urgency: 0, st };
+        if (st === "expiring") return { t, reason: "期限間近", urgency: 1, st };
+        if (st === "active" && t.remaining_sessions > 0 && t.remaining_sessions <= 2)
+          return { t, reason: "残りわずか", urgency: 2, st };
+        return null;
+      })
+      .filter(Boolean) as { t: CustomerTicket; reason: string; urgency: number; st: TicketStatus }[];
+    return items.sort(
+      (a, b) => a.urgency - b.urgency || (a.t.expiration_date || "").localeCompare(b.t.expiration_date || "")
+    );
+  }, [sTickets]);
+
+  // 顧客ごとの有効回数券サマリ（会員名簿の統合表示用）。customer_id 優先、無ければ氏名で紐付け。
+  const customerTicketInfo = useMemo(() => {
+    const m = new Map<string, { active: number; remaining: number }>();
+    for (const t of sTickets) {
+      const st = ticketStatus(t);
+      if (st !== "active" && st !== "expiring") continue;
+      const key = t.customer_id || `name:${t.customer_name}`;
+      const cur = m.get(key) || { active: 0, remaining: 0 };
+      cur.active += 1;
+      cur.remaining += t.remaining_sessions;
+      m.set(key, cur);
+    }
+    return m;
+  }, [sTickets]);
+  const ticketInfoFor = (c: Customer) =>
+    customerTicketInfo.get(c.id) || customerTicketInfo.get(`name:${c.name}`) || null;
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -304,17 +356,23 @@ export default function MembersView({
       <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
         {([
           { k: "tickets", l: "回数券" },
+          { k: "followup", l: "フォロー" },
           { k: "customers", l: "会員名簿" },
           { k: "plans", l: "プラン" },
         ] as { k: Tab; l: string }[]).map((t) => (
           <button
             key={t.k}
             onClick={() => setTab(t.k)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            className={`relative flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
               tab === t.k ? "bg-white text-sise-700 shadow-sm" : "text-slate-500"
             }`}
           >
             {t.l}
+            {t.k === "followup" && followups.length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold align-middle">
+                {followups.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -439,6 +497,50 @@ export default function MembersView({
         </div>
       )}
 
+      {/* ===== フォロータブ ===== */}
+      {tab === "followup" && (
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">
+            期限切れ・期限間近・残りわずかの回数券です。再来店のお声がけにご活用ください。
+          </p>
+          {followups.length === 0 ? (
+            <div className="glass-card p-8 text-center text-sm text-slate-400">
+              フォローが必要な回数券はありません。
+            </div>
+          ) : (
+            followups.map(({ t, reason }) => {
+              const chip =
+                reason === "期限切れ"
+                  ? "bg-red-100 text-red-700"
+                  : reason === "期限間近"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-blue-100 text-blue-700";
+              return (
+                <div key={t.id} className="glass-card p-3 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-slate-800">{t.customer_name}</span>
+                      <span className={`chip ${chip}`}>{reason}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      残り {t.remaining_sessions}/{t.total_sessions} 回
+                      {t.expiration_date && ` ・ 期限 ${t.expiration_date}`}
+                    </p>
+                  </div>
+                  {t.customer_phone ? (
+                    <a href={`tel:${t.customer_phone}`} className="btn-ghost !py-1.5 !px-3 text-xs shrink-0">
+                      📞 {t.customer_phone}
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-slate-300 shrink-0">電話未登録</span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {/* ===== 会員名簿タブ ===== */}
       {tab === "customers" && (
         <div className="space-y-3">
@@ -471,15 +573,25 @@ export default function MembersView({
                 <tr className="text-left text-xs text-slate-500 bg-slate-50/60 border-b border-slate-100">
                   <th className="py-3 px-3 font-semibold">お名前</th>
                   <th className="py-3 px-3 font-semibold">電話</th>
+                  <th className="py-3 px-3 font-semibold">有効回数券</th>
                   <th className="py-3 px-3 font-semibold">メモ</th>
                   <th className="py-3 px-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {sCustomers.map((c) => (
+                {sCustomers.map((c) => {
+                  const info = ticketInfoFor(c);
+                  return (
                   <tr key={c.id} className="border-b border-slate-50">
                     <td className="py-2.5 px-3 font-semibold text-slate-700">{c.name}</td>
                     <td className="py-2.5 px-3 text-slate-500">{c.phone || "—"}</td>
+                    <td className="py-2.5 px-3 text-xs">
+                      {info ? (
+                        <span className="chip bg-sise-100 text-sise-700">{info.active}券・残{info.remaining}回</span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
                     <td className="py-2.5 px-3 text-slate-400 text-xs">{c.note || ""}</td>
                     <td className="py-2.5 px-2 text-right">
                       {canEdit && (
@@ -487,9 +599,10 @@ export default function MembersView({
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {sCustomers.length === 0 && (
-                  <tr><td colSpan={4} className="py-8 text-center text-slate-400 text-sm">会員がまだ登録されていません。</td></tr>
+                  <tr><td colSpan={5} className="py-8 text-center text-slate-400 text-sm">会員がまだ登録されていません。</td></tr>
                 )}
               </tbody>
             </table>
