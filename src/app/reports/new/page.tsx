@@ -49,6 +49,15 @@ export default async function NewReportPage() {
     (p) => p.store_id === null || p.store_id === member.store_id
   );
 
+  // 勤務店舗の候補（同業態の有効店舗。ヘルプ先計上用）
+  const { data: storeRows } = await supabase
+    .from("stores")
+    .select("*")
+    .eq("genre", member.genre)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  const workStores = (storeRows as Store[]) || [];
+
   return (
     <>
       <AppHeader member={member} store={(store as Store) ?? null} active="/reports/new" />
@@ -57,7 +66,13 @@ export default async function NewReportPage() {
         <p className="text-xs text-slate-500 mb-5">
           売上・成績を記録し、契約の取れた/取れなかった理由を残すと、AIが課題と改善策をフィードバックします。
         </p>
-        <ReportForm member={member} store={(store as Store) ?? null} channels={channels} menuPlans={menuPlans} />
+        <ReportForm
+          member={member}
+          store={(store as Store) ?? null}
+          channels={channels}
+          menuPlans={menuPlans}
+          workStores={workStores}
+        />
       </main>
     </>
   );

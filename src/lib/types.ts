@@ -89,6 +89,13 @@ export type DailyReport = {
   reflection: string | null; // 今日の振り返り
   tomorrow_action: string | null; // 明日の行動
 
+  // エステ追加項目（整体では未使用）
+  product_sales: number; // 物販売上(円)
+  new_product_sales: number; // 新規の物販売上(円)
+  renewal_contracts: number; // 継続契約(件)
+  other_amount: number; // その他(円)
+  other_note: string | null; // その他メモ
+
   created_at: string;
   updated_at: string;
 };
@@ -109,9 +116,10 @@ export type ContractMemo = {
   customer_name: string | null;
   customer_attr: string | null;
   reason: string | null; // 取れた理由 / 取れなかった理由
-  amount: number | null; // 単価/売上額（単価媒体や任意の金額記録用）
+  amount: number | null; // 契約金額（メニュー金額/単価。選択or手入力）
   menu_plan_id: string | null; // 契約したメニュー（料金表）
   menu_label: string | null; // 表示用スナップショット
+  menu_sessions: number | null; // 回数（選択or手入力）
   created_at: string;
 };
 
