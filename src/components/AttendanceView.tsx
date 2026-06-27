@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { todayJST } from "@/lib/date";
+import { toCsv, downloadCsv } from "@/lib/csv";
 import { distanceMeters, type AttendanceRecord, type Member, type Store } from "@/lib/types";
 
 export type TeamRecord = AttendanceRecord & { member_name: string; store_name: string };
@@ -16,6 +17,13 @@ function fmtTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(d);
+}
+
+// CSV用の実働分（数値）
+function minutesWorked(rec: AttendanceRecord): number {
+  if (!rec.clock_in_at || !rec.clock_out_at) return 0;
+  const ms = new Date(rec.clock_out_at).getTime() - new Date(rec.clock_in_at).getTime();
+  return isNaN(ms) || ms <= 0 ? 0 : Math.round(ms / 60000);
 }
 
 function workDuration(rec: AttendanceRecord): string {
@@ -229,6 +237,26 @@ export default function AttendanceView({
 
   const workingNow = teamData.filter((t) => t.status === "in").length;
 
+  // 個人の当月勤怠CSV
+  function exportPersonalCsv() {
+    const headers = ["日付", "出勤", "退勤", "実働(分)", "打刻方法"];
+    const rows = [...records]
+      .filter((r) => r.clock_in_at)
+      .sort((a, b) => a.work_date.localeCompare(b.work_date))
+      .map((r) => [r.work_date, fmtTime(r.clock_in_at), fmtTime(r.clock_out_at), minutesWorked(r), r.method === "gps" ? "GPS" : "手動"]);
+    downloadCsv(`attendance_${member.name}_${todayDate.slice(0, 7)}.csv`, toCsv(headers, rows));
+  }
+
+  // チームの当月勤怠CSV（給与計算用・1行=1打刻）
+  function exportTeamCsv() {
+    const headers = ["日付", "メンバー", "店舗", "出勤", "退勤", "実働(分)", "打刻方法"];
+    const rows = [...teamRecords]
+      .filter((r) => r.clock_in_at)
+      .sort((a, b) => a.work_date.localeCompare(b.work_date) || a.member_name.localeCompare(b.member_name, "ja"))
+      .map((r) => [r.work_date, r.member_name, r.store_name, fmtTime(r.clock_in_at), fmtTime(r.clock_out_at), minutesWorked(r), r.method === "gps" ? "GPS" : "手動"]);
+    downloadCsv(`attendance_team_${todayDate.slice(0, 7)}.csv`, toCsv(headers, rows));
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center gap-2">
@@ -352,6 +380,11 @@ export default function AttendanceView({
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
+              <div className="flex justify-end">
+                <button className="text-[11px] font-semibold text-slate-500 hover:text-sise-600 px-2.5 py-1 rounded-lg hover:bg-sise-50 transition-colors" onClick={exportPersonalCsv}>
+                  ⬇ CSV出力
+                </button>
+              </div>
               {records.map((r) => (
                 <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
                   <div className="text-xs font-bold text-slate-500 tabular-nums w-16">{r.work_date.slice(5)}</div>
@@ -397,6 +430,11 @@ export default function AttendanceView({
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
+              <div className="flex justify-end">
+                <button className="text-[11px] font-semibold text-slate-500 hover:text-sise-600 px-2.5 py-1 rounded-lg hover:bg-sise-50 transition-colors" onClick={exportTeamCsv}>
+                  ⬇ チームCSV出力（給与計算用）
+                </button>
+              </div>
               {teamData.map((t) => {
                 const badge =
                   t.status === "in"
