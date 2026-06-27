@@ -26,6 +26,29 @@ async function assertStaffAdmin() {
   return member;
 }
 
+// 監査ログ記録（service role）。記録失敗は本処理を妨げない。
+async function logAudit(
+  actor: Member,
+  action: string,
+  targetType: string,
+  targetId: string | null,
+  detail?: Record<string, unknown>
+) {
+  try {
+    const admin = createAdminClient();
+    await admin.from("audit_log").insert({
+      actor_member_id: actor.id,
+      actor_name: actor.name,
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      detail: detail ?? null,
+    });
+  } catch {
+    /* 監査ログの失敗は無視 */
+  }
+}
+
 // スコープIDOR防止: 対象店舗が actor の管轄（アクセス可能店舗）内か検証。
 // null = 全社（owner 等）は無制限。
 async function assertCanManageStore(actor: Member, storeId: string) {
@@ -88,6 +111,7 @@ export async function updateRolePermission(role: Role, resource: Resource, level
     .from("role_permissions")
     .upsert({ role, resource, level }, { onConflict: "role,resource" });
   if (error) throw new Error(error.message);
+  await logAudit(actor, "role_permission.update", "role_permissions", role, { resource, level });
   revalidatePath("/admin/roles");
 }
 
@@ -108,6 +132,11 @@ export async function updateMemberRole(args: {
     .update({ role: args.role, scope: args.scope, department_id: args.departmentId })
     .eq("id", args.memberId);
   if (error) throw new Error(error.message);
+  await logAudit(actor, "member.role_update", "member", args.memberId, {
+    role: args.role,
+    scope: args.scope,
+    department_id: args.departmentId,
+  });
   revalidatePath("/admin/members");
 }
 
@@ -128,6 +157,7 @@ export async function setMemberStores(memberId: string, storeIds: string[]) {
     const { error } = await admin.from("member_store_access").insert(rows);
     if (error) throw new Error(error.message);
   }
+  await logAudit(actor, "member.stores_set", "member", memberId, { storeIds });
   revalidatePath("/admin/members");
 }
 
@@ -200,10 +230,15 @@ export async function createStaffMember(args: {
     await admin.auth.admin.deleteUser(userId).catch(() => {});
     throw new Error(memberErr.message);
   }
+  await logAudit(actor, "member.create", "member", userId, { name, email, role, storeId: args.storeId });
   revalidatePath("/admin/members");
 }
 
-// メンバーと紐づく Auth ユーザーを削除
+// メンバーを無効化（ソフトデリート）。
+// 日報など member_id を参照する過去データを残すため members 行は削除せず、
+// active=false にして auth ユーザーを削除（ログインを剥奪）する。
+// ※ 旧実装は members を物理削除しており、ON DELETE CASCADE で当該メンバーの
+//   daily_reports / contract_memos まで消えていた（データ消失リスク）。
 export async function deleteStaffMember(memberId: string) {
   const current = await assertStaffAdmin();
   if (current.id === memberId) {
@@ -220,15 +255,19 @@ export async function deleteStaffMember(memberId: string) {
     .maybeSingle();
   if (fetchErr) throw new Error(fetchErr.message);
 
-  // members 行を削除（関連は外部キーの on delete で処理）
-  const { error: delErr } = await admin.from("members").delete().eq("id", memberId);
-  if (delErr) throw new Error(delErr.message);
+  // ソフトデリート（過去の記録は保持）。ログイン剥奪のため auth_user_id も外す。
+  const { error: updErr } = await admin
+    .from("members")
+    .update({ active: false, auth_user_id: null })
+    .eq("id", memberId);
+  if (updErr) throw new Error(updErr.message);
 
-  // Auth ユーザーも削除
+  // Auth ユーザーを削除（ログインできなくする）
   const authId = (target as { auth_user_id: string | null } | null)?.auth_user_id;
   if (authId) {
     await admin.auth.admin.deleteUser(authId).catch(() => {});
   }
+  await logAudit(current, "member.deactivate", "member", memberId);
   revalidatePath("/admin/members");
 }
 
@@ -236,7 +275,7 @@ export async function deleteStaffMember(memberId: string) {
 // 媒体（集客チャネル）マスタ
 // ------------------------------------------------------------
 export async function addMediaChannel(args: { storeId: string; name: string }) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const name = args.name.trim();
   if (!name) throw new Error("媒体名を入力してください");
   const admin = createAdminClient();
@@ -252,6 +291,7 @@ export async function addMediaChannel(args: { storeId: string; name: string }) {
     .from("media_channels")
     .insert({ store_id: args.storeId, name, sort_order: nextOrder, active: true });
   if (error) throw new Error(error.message);
+  await logAudit(actor, "media_channel.add", "media_channel", null, { name, storeId: args.storeId });
   revalidatePath("/admin/media");
 }
 
@@ -261,7 +301,7 @@ export async function updateMediaChannel(args: {
   active?: boolean;
   sortOrder?: number;
 }) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const patch: Record<string, unknown> = {};
   if (args.name !== undefined) patch.name = args.name.trim();
   if (args.active !== undefined) patch.active = args.active;
@@ -269,14 +309,16 @@ export async function updateMediaChannel(args: {
   const admin = createAdminClient();
   const { error } = await admin.from("media_channels").update(patch).eq("id", args.id);
   if (error) throw new Error(error.message);
+  await logAudit(actor, "media_channel.update", "media_channel", args.id, patch);
   revalidatePath("/admin/media");
 }
 
 export async function deleteMediaChannel(id: string) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const admin = createAdminClient();
   const { error } = await admin.from("media_channels").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logAudit(actor, "media_channel.delete", "media_channel", id);
   revalidatePath("/admin/media");
 }
 
@@ -301,7 +343,7 @@ export async function updateMenuPlan(args: {
   note?: string | null;
   active?: boolean;
 }) {
-  await assertMenuAdmin();
+  const actor = await assertMenuAdmin();
   const patch: Record<string, unknown> = {};
   for (const k of ["label", "variant", "sessions", "price", "unit_price", "note", "active"] as const) {
     if (args[k] !== undefined) patch[k] = args[k];
@@ -309,6 +351,7 @@ export async function updateMenuPlan(args: {
   const admin = createAdminClient();
   const { error } = await admin.from("menu_plans").update(patch).eq("id", args.id);
   if (error) throw new Error(error.message);
+  await logAudit(actor, "menu_plan.update", "menu_plan", args.id, patch);
   revalidatePath("/admin/menu");
   revalidatePath("/menu");
 }
@@ -325,7 +368,7 @@ export async function addMenuPlan(args: {
   unitPrice?: number | null;
   note?: string | null;
 }) {
-  await assertMenuAdmin();
+  const actor = await assertMenuAdmin();
   if (!args.section.trim() || !args.groupName.trim()) {
     throw new Error("セクションとグループ名は必須です");
   }
@@ -353,15 +396,21 @@ export async function addMenuPlan(args: {
     active: true,
   });
   if (error) throw new Error(error.message);
+  await logAudit(actor, "menu_plan.add", "menu_plan", null, {
+    genre: args.genre,
+    section: args.section.trim(),
+    groupName: args.groupName.trim(),
+  });
   revalidatePath("/admin/menu");
   revalidatePath("/menu");
 }
 
 export async function deleteMenuPlan(id: string) {
-  await assertMenuAdmin();
+  const actor = await assertMenuAdmin();
   const admin = createAdminClient();
   const { error } = await admin.from("menu_plans").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logAudit(actor, "menu_plan.delete", "menu_plan", id);
   revalidatePath("/admin/menu");
   revalidatePath("/menu");
 }
