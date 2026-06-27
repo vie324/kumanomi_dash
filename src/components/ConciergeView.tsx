@@ -68,11 +68,16 @@ export default function ConciergeView({ menuPlans }: { menuPlans: MenuPlan[] }) 
     return groups;
   }, [activeConcerns, plans]);
 
-  // ティアに合う回数のプラン候補（おすすめ回数券）
+  // ティアに合う回数のプラン候補（おすすめ回数券）。
+  // 固定の回数ホワイトリストだと該当外の有効プランを取りこぼすため、
+  // ティアの推奨回数レンジで絞り、該当が無ければ回数つき全プランにフォールバックする。
   const tierPlans = useMemo(() => {
-    return plans
-      .filter((p) => p.sessions != null && tier.sessions.includes(p.sessions))
-      .slice(0, 12);
+    const withSessions = plans.filter((p) => p.sessions != null);
+    const lo = tier.sessions.length ? Math.min(...tier.sessions) : 0;
+    const hi = tier.sessions.length ? Math.max(...tier.sessions) : Infinity;
+    const inRange = withSessions.filter((p) => p.sessions! >= lo && p.sessions! <= hi);
+    const pool = inRange.length > 0 ? inRange : withSessions;
+    return [...pool].sort((a, b) => a.sessions! - b.sessions!).slice(0, 12);
   }, [plans, tier]);
 
   return (

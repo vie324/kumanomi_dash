@@ -31,7 +31,9 @@ function LoginForm() {
       setLoading(false);
       return;
     }
-    const redirect = params.get("redirect") || "/";
+    // オープンリダイレクト防止: 同一オリジンの相対パスのみ許可（//や絶対URLは拒否）
+    const raw = params.get("redirect") || "/";
+    const redirect = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
     router.replace(redirect);
     router.refresh();
   }

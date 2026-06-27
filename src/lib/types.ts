@@ -1,5 +1,7 @@
 // アプリ共通の型定義
 
+import { todayJST, diffDays } from "./date";
+
 // 業態
 export type Genre = "seitai" | "esthe";
 export const GENRE_LABELS: Record<Genre, string> = {
@@ -255,7 +257,8 @@ export type TicketStatus = "active" | "expiring" | "expired" | "completed";
 export function ticketStatus(t: Pick<CustomerTicket, "remaining_sessions" | "expiration_date">): TicketStatus {
   if (t.remaining_sessions <= 0) return "completed";
   if (t.expiration_date) {
-    const days = Math.ceil((new Date(t.expiration_date).getTime() - Date.now()) / 86400000);
+    // JSTの暦日基準で「期限 − 今日」を算出（UTC変換による期限当日のズレを防ぐ）
+    const days = diffDays(todayJST(), t.expiration_date);
     if (days < 0) return "expired";
     if (days <= 30) return "expiring";
   }

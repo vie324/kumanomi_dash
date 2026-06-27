@@ -419,7 +419,12 @@ export default function PostureView({
               })}
             </div>
           )}
-          {beforeData && afterData && (() => {
+          {beforeData && afterData && beforeData.mode !== afterData.mode && (
+            <div className="mt-3 p-2.5 rounded-lg text-center text-xs font-bold bg-amber-50 border border-amber-200 text-amber-700">
+              正面と側面は評価項目が異なるため比較できません。同じ向きで撮影してください。
+            </div>
+          )}
+          {beforeData && afterData && beforeData.mode === afterData.mode && (() => {
             const bt = totalScore(beforeData.analysis) ?? 0;
             const at = totalScore(afterData.analysis) ?? 0;
             const diff = at - bt;
