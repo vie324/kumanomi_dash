@@ -10,6 +10,18 @@ export type FeedbackResult = {
   encouragement: string;
 };
 
+// 比較コーチング用の「今月のペース」コンテキスト
+export type CoachingContext = {
+  monthLabel: string; // 例: "2026年6月"
+  daysElapsed: number;
+  daysInMonth: number;
+  mtdRevenue: number; // 今月の累計売上（当日まで）
+  monthTarget: number; // 月間売上目標（0=未設定）
+  projectedRevenue: number; // 月末着地予測
+  mtdNew: number; // 今月の累計 新規
+  mtdContract: number; // 今月の累計 契約
+};
+
 const SYSTEM_PROMPT = `あなたは整体院グループ「くまのみ整体院」の店舗運営をサポートする、経験豊富なマネージャー兼コーチです。
 スタッフが入力した日報・新規のお客様ごとの契約記録をもとに、その日の成績を振り返り、建設的なフィードバックを日本語で返します。
 
@@ -19,6 +31,7 @@ const SYSTEM_PROMPT = `あなたは整体院グループ「くまのみ整体院
 - 新規のお客様について、契約が取れた成功要因と、取れなかった原因を、記録された理由から読み取って言語化する。
 - 契約内容（回数券か定額か、プランの大きさ）の傾向にも触れ、より良い提案ができたか考える。
 - 精神論ではなく、明日から実行できる具体的な行動に落とし込む（本人が書いた「明日の行動」も踏まえて補強・修正する）。
+- 「今月のペース（月末着地予測）」が与えられた場合は、月間目標に対して今どの位置にいるかを比較し、残り日数で何をすべきかを具体的に示す。
 - スタッフが前向きに振り返れるよう、良かった点も必ず認める。
 
 出力は必ず次のJSON形式のみ（前後に説明文やマークダウンの\`\`\`は付けない）:
@@ -33,7 +46,8 @@ export function buildUserPrompt(
   report: DailyReport,
   memos: ContractMemo[],
   store: Store | null,
-  memberName: string
+  memberName: string,
+  context?: CoachingContext
 ): string {
   const won = memos.filter((m) => m.outcome === "won");
   const lost = memos.filter((m) => m.outcome === "lost");
@@ -69,7 +83,20 @@ export function buildUserPrompt(
           .join("\n");
 
   const target = store
-    ? `店舗の目安: 月間売上目標 ${store.monthly_target_revenue.toLocaleString()}円 / 1日 新規目標 ${store.daily_target_new}人 / 1日 契約目標 ${store.daily_target_contract}人`
+    ? `店舗の目安: 月間売上目標 ${Number(store.monthly_target_revenue || 0).toLocaleString()}円 / 1日 新規目標 ${store.daily_target_new ?? 0}人 / 1日 契約目標 ${store.daily_target_contract ?? 0}人`
+    : "";
+
+  const paceBlock = context
+    ? `\n■ 今月のペース（${context.monthLabel}・${context.daysElapsed}/${context.daysInMonth}日経過）
+  今月の累計売上: ${context.mtdRevenue.toLocaleString()}円${
+        context.monthTarget > 0 ? ` / 月間目標 ${context.monthTarget.toLocaleString()}円` : ""
+      }
+  月末着地予測: ${context.projectedRevenue.toLocaleString()}円${
+        context.monthTarget > 0
+          ? `（目標比 ${Math.round((context.projectedRevenue / context.monthTarget) * 100)}%）`
+          : ""
+      }
+  今月の累計: 新規 ${context.mtdNew}人 / 契約 ${context.mtdContract}件\n`
     : "";
 
   return `【日報】${report.report_date}  担当: ${memberName}（${store?.name || report.store_id}）
@@ -92,7 +119,7 @@ ${wonBlock}
 
 ■ 契約が取れなかった新規のお客様（${lost.length}件）
 ${lostBlock}
-
+${paceBlock}
 ■ 今日の振り返り（本人記入）
   ${report.reflection || "（未記入）"}
 
@@ -107,6 +134,7 @@ export async function generateFeedback(args: {
   memos: ContractMemo[];
   store: Store | null;
   memberName: string;
+  context?: CoachingContext;
 }): Promise<{ result: FeedbackResult; model: string; raw: unknown }> {
   const anthropic = new Anthropic(); // ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL は環境変数から
   const model = DEFAULT_MODEL;
@@ -118,7 +146,7 @@ export async function generateFeedback(args: {
     messages: [
       {
         role: "user",
-        content: buildUserPrompt(args.report, args.memos, args.store, args.memberName),
+        content: buildUserPrompt(args.report, args.memos, args.store, args.memberName, args.context),
       },
     ],
   });

@@ -4,10 +4,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentMember, getPermissionMatrix } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { generateFeedback } from "@/lib/ai-feedback";
+import { formatMonthLabel } from "@/lib/date";
 import type { ContractMemo, DailyReport, Store } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// "YYYY-MM" の日数（28〜31）
+function daysInMonth(ym: string): number {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m) return 30;
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
 
 // POST /api/ai-feedback  { reportId: string, force?: boolean }
 export async function POST(request: Request) {
@@ -82,11 +90,49 @@ export async function POST(request: Request) {
       .eq("id", (report as DailyReport).member_id)
       .maybeSingle();
 
+    // 比較コーチング用：本人の「今月の累計とペース」を算出
+    const rep = report as DailyReport;
+    const monthKey = rep.report_date.slice(0, 7);
+    const monthStart = monthKey + "-01";
+    const { data: mtdRows } = await supabase
+      .from("daily_reports")
+      .select("id, revenue, new_count")
+      .eq("member_id", rep.member_id)
+      .gte("report_date", monthStart)
+      .lte("report_date", rep.report_date);
+    const rows = (mtdRows as { id: string; revenue: number; new_count: number }[]) || [];
+    const mtdRevenue = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+    const mtdNew = rows.reduce((s, r) => s + (r.new_count || 0), 0);
+    let mtdContract = 0;
+    const mtdIds = rows.map((r) => r.id);
+    if (mtdIds.length > 0) {
+      const { data: wonRows } = await supabase
+        .from("contract_memos")
+        .select("report_id")
+        .eq("outcome", "won")
+        .in("report_id", mtdIds);
+      mtdContract = (wonRows as unknown[] | null)?.length || 0;
+    }
+    const daysElapsed = Number(rep.report_date.slice(8, 10)) || rows.length;
+    const dim = daysInMonth(monthKey);
+    const projectedRevenue = daysElapsed > 0 ? Math.round((mtdRevenue / daysElapsed) * dim) : mtdRevenue;
+    const monthTarget = Number((store as Store | null)?.monthly_target_revenue || 0);
+
     const { result, model, raw } = await generateFeedback({
-      report: report as DailyReport,
+      report: rep,
       memos: (memos as ContractMemo[]) || [],
       store: (store as Store) ?? null,
       memberName: (member?.name as string) || "担当者",
+      context: {
+        monthLabel: formatMonthLabel(monthKey),
+        daysElapsed,
+        daysInMonth: dim,
+        mtdRevenue,
+        monthTarget,
+        projectedRevenue,
+        mtdNew,
+        mtdContract,
+      },
     });
 
     // 保存は service role（ai_feedback への insert はサーバー専用）
