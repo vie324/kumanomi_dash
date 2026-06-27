@@ -65,7 +65,8 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 14. `supabase/migrations/0014_add_ageo_store.sql` … 上尾店（エステ部門）を追加
 15. `supabase/migrations/0015_esthe_fields_help_store.sql` … エステ日報の追加項目(物販/継続/その他) + 契約メモ回数 + ヘルプ先計上のためRLS書き込み緩和
 16. `supabase/migrations/0016_help_store_write_guard.sql` … ヘルプ先書き込みを「同業態の有効店舗」に制限（can_write_store）
-17. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
+17. `supabase/migrations/0017_scope_role_floor.sql` … スコープを役割の下限で底上げ（管理者が各店舗を見れないバグ修正）
+18. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
 16. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
