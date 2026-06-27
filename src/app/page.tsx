@@ -326,19 +326,19 @@ export default async function DashboardPage({
 
         {/* KPI（前月比つき） */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard index={0} label="売上" value={totalRevenue} format={yen} delta={dRevenue} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} tone="brand" icon={<TrendingUp size={16} />} />
+          <KpiCard index={0} label="売上" value={totalRevenue} format="yen" delta={dRevenue} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} tone="brand" icon={<TrendingUp size={16} />} />
           <KpiCard index={1} label="新規" value={sumNew} delta={dNew} sub={`契約 ${sumContract} 件`} tone="blue" icon={<UserPlus size={16} />} />
-          <KpiCard index={2} label="新規→契約率" value={conversion} format={(n) => n.toFixed(0)} suffix="%" tone="emerald" icon={<Target size={16} />} />
-          <KpiCard index={3} label="次回予約率" value={resvRate} format={(n) => n.toFixed(0)} suffix="%" sub={`既存 ${sumExisting} 件`} tone="purple" icon={<CalendarCheck size={16} />} />
+          <KpiCard index={2} label="新規→契約率" value={conversion} format="fixed0" suffix="%" tone="emerald" icon={<Target size={16} />} />
+          <KpiCard index={3} label="次回予約率" value={resvRate} format="fixed0" suffix="%" sub={`既存 ${sumExisting} 件`} tone="purple" icon={<CalendarCheck size={16} />} />
         </div>
 
         {/* エステ追加KPI */}
         {showEstheKpis && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KpiCard index={0} label="物販売上" value={sumProduct} format={yen} tone="orange" icon={<ShoppingBag size={16} />} />
-            <KpiCard index={1} label="新規物販売上" value={sumNewProduct} format={yen} tone="blue" icon={<Sparkles size={16} />} />
+            <KpiCard index={0} label="物販売上" value={sumProduct} format="yen" tone="orange" icon={<ShoppingBag size={16} />} />
+            <KpiCard index={1} label="新規物販売上" value={sumNewProduct} format="yen" tone="blue" icon={<Sparkles size={16} />} />
             <KpiCard index={2} label="継続契約" value={sumRenewal} suffix="件" tone="emerald" icon={<Repeat size={16} />} />
-            <KpiCard index={3} label="その他" value={sumOther} format={yen} tone="slate" icon={<Coins size={16} />} />
+            <KpiCard index={3} label="その他" value={sumOther} format="yen" tone="slate" icon={<Coins size={16} />} />
           </div>
         )}
 
