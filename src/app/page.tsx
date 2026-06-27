@@ -6,7 +6,9 @@ import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import DashboardCharts from "@/components/DashboardCharts";
 import StoreFilter from "@/components/StoreFilter";
-import { type DailyReport, type Member, type Store } from "@/lib/types";
+import DeptFilter from "@/components/DeptFilter";
+import { isOwnOnly } from "@/lib/permissions";
+import { type DailyReport, type Genre, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +51,7 @@ function Kpi({
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { store?: string };
+  searchParams: { store?: string; dept?: string };
 }) {
   const access = await loadPageAccess("dashboard");
   if (!access.member) return <NoAccess />;
@@ -67,26 +69,43 @@ export default async function DashboardPage({
     return <PermissionDenied member={member} store={store} message="ダッシュボードの閲覧権限がありません。" />;
   }
 
-  // スコープ内の店舗一覧（複数店舗が見えるユーザー向けの店舗フィルタ用）
+  // 全社が見えるか（owner 等。スコープが全店）→ 部門(全体/整骨/美容)切替を出す
+  const seesAllStores = storeIds === null;
+  // ?dept= による業態フィルタ（全社が見えるユーザーのみ有効）
+  const dept: "all" | Genre =
+    seesAllStores && (searchParams.dept === "seitai" || searchParams.dept === "esthe")
+      ? (searchParams.dept as Genre)
+      : "all";
+
+  // スタッフ（自分のみ）かどうか。自分の数値だけ表示する。
+  const ownOnly = isOwnOnly(member, "daily_reports");
+
+  // スコープ内の店舗一覧（店舗フィルタ用）。部門選択時は業態で絞る。
   let scopeStores: Store[] = [];
   {
     let q = supabase.from("stores").select("*").eq("active", true).order("name", { ascending: true });
     if (storeIds) q = q.in("id", storeIds);
+    if (dept !== "all") q = q.eq("genre", dept);
     const { data } = await q;
     scopeStores = (data as Store[]) || [];
   }
 
-  // ?store= が指定され、かつスコープ内ならその店舗に絞る
+  // ?store= が指定され、かつ（現部門の）スコープ内ならその店舗に絞る
   const selectedStore =
     searchParams.store && scopeStores.some((s) => s.id === searchParams.store)
       ? searchParams.store
       : null;
 
-  // スコープ内の店舗に限定（storeIds が null なら全店舗）
-  const scopeStoreIds = selectedStore ? [selectedStore] : storeIds ?? null;
+  // 対象店舗ID: 店舗選択 > 部門の店舗群 > スコープ全店
+  const scopeStoreIds = selectedStore
+    ? [selectedStore]
+    : dept !== "all"
+    ? scopeStores.map((s) => s.id)
+    : storeIds ?? null;
 
   let membersQuery = supabase.from("members").select("*").eq("active", true);
-  if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
+  if (ownOnly) membersQuery = membersQuery.eq("id", member.id);
+  else if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
   const { data: membersRows } = await membersQuery;
   const members = (membersRows as Member[]) || [];
 
@@ -95,7 +114,8 @@ export default async function DashboardPage({
     .select("*")
     .gte("report_date", monthStartJST())
     .order("report_date", { ascending: true });
-  if (scopeStoreIds) reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
+  if (ownOnly) reportsQuery = reportsQuery.eq("member_id", member.id);
+  else if (scopeStoreIds) reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
   const { data: reportRows } = await reportsQuery;
   const reports = (reportRows as DailyReport[]) || [];
 
@@ -152,6 +172,13 @@ export default async function DashboardPage({
   const sumExisting = reports.reduce((s, r) => s + (r.existing_treatments || 0), 0);
   const sumNextResv = reports.reduce((s, r) => s + (r.next_reservations || 0), 0);
   const sumContract = wonMemos.length;
+  // エステ追加項目の集計
+  const sumProduct = reports.reduce((s, r) => s + Number(r.product_sales || 0), 0);
+  const sumNewProduct = reports.reduce((s, r) => s + Number(r.new_product_sales || 0), 0);
+  const sumRenewal = reports.reduce((s, r) => s + (r.renewal_contracts || 0), 0);
+  const sumOther = reports.reduce((s, r) => s + Number(r.other_amount || 0), 0);
+  // 美容業態の指標を出すか（部門=美容、または本人がエステ）
+  const showEstheKpis = dept === "esthe" || (dept === "all" && member.genre === "esthe");
   const conversion = sumNew > 0 ? (sumContract / sumNew) * 100 : 0;
   const resvRate = sumExisting > 0 ? (sumNextResv / sumExisting) * 100 : 0;
   const monthlyTarget = store?.monthly_target_revenue || 0;
@@ -192,15 +219,27 @@ export default async function DashboardPage({
     <>
       <AppHeader member={member} store={store} active="/" />
       <main className="max-w-5xl mx-auto px-4 py-5 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900">今月のダッシュボード</h1>
             <p className="text-xs text-slate-500">
-              {selectedStore ? scopeStores.find((s) => s.id === selectedStore)?.name : "全店舗（部門内）"} ・ {reports.length}件の日報
+              {ownOnly
+                ? `${member.name} さん（自分）`
+                : selectedStore
+                ? scopeStores.find((s) => s.id === selectedStore)?.name
+                : dept === "seitai"
+                ? "整骨 部門"
+                : dept === "esthe"
+                ? "美容 部門"
+                : seesAllStores
+                ? "全体"
+                : "全店舗（部門内）"}{" "}
+              ・ {reports.length}件の日報
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {seesAllStores && <DeptFilter current={dept} />}
+            {!ownOnly && <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />}
             <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
           </div>
         </div>
@@ -212,6 +251,16 @@ export default async function DashboardPage({
           <Kpi label="新規→契約率" value={`${conversion.toFixed(0)}%`} accent="text-emerald-600" />
           <Kpi label="次回予約率" value={`${resvRate.toFixed(0)}%`} sub={`既存 ${sumExisting} 件`} accent="text-purple-600" />
         </div>
+
+        {/* エステ追加KPI */}
+        {showEstheKpis && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Kpi label="物販売上" value={yen(sumProduct)} accent="text-orange-600" />
+            <Kpi label="新規物販売上" value={yen(sumNewProduct)} accent="text-blue-600" />
+            <Kpi label="継続契約" value={`${sumRenewal} 件`} accent="text-emerald-600" />
+            <Kpi label="その他" value={yen(sumOther)} accent="text-slate-600" />
+          </div>
+        )}
 
         {/* 目標進捗 */}
         {monthlyTarget > 0 && (

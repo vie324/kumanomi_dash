@@ -16,10 +16,11 @@ import AiFeedbackCard, { type FeedbackData } from "./AiFeedbackCard";
 type MemoDraft = {
   outcome: "won" | "lost";
   channel: string;
-  amount: string; // 単価媒体のときの金額（円）
+  amount: string; // 契約金額（円）。メニュー選択で自動補完、手入力も可
+  sessions: string; // 回数。メニュー選択で自動補完、手入力も可
   contract_type: ContractType | null;
   contract_plan: number | null;
-  menu_plan_id: string; // エステ: 契約したメニュー
+  menu_plan_id: string; // エステ: 契約したメニュー（グループ）
   customer_name: string;
   customer_attr: string;
   reason: string;
@@ -38,6 +39,7 @@ const emptyMemo = (outcome: "won" | "lost"): MemoDraft => ({
   outcome,
   channel: "",
   amount: "",
+  sessions: "",
   contract_type: outcome === "won" ? "ticket" : null,
   contract_plan: outcome === "won" ? TICKET_PLANS[0] : null,
   menu_plan_id: "",
@@ -81,17 +83,27 @@ export default function ReportForm({
   store,
   channels,
   menuPlans = [],
+  workStores = [],
 }: {
   member: Member;
   store: Store | null;
   channels: MediaChannel[];
   menuPlans?: MenuPlan[];
+  workStores?: Store[]; // 勤務店舗の候補（同業態。ヘルプ先計上用）
 }) {
   const supabase = createClient();
   const isEsthe = member.genre === "esthe";
 
   const [reportDate, setReportDate] = useState(todayJST());
+  // 勤務店舗（既定=自店。ヘルプ日は別店舗を選択しその店に計上）
+  const [workStoreId, setWorkStoreId] = useState(member.store_id);
   const [revenue, setRevenue] = useState(0);
+  // エステ追加項目
+  const [productSales, setProductSales] = useState(0);
+  const [newProductSales, setNewProductSales] = useState(0);
+  const [renewalContracts, setRenewalContracts] = useState(0);
+  const [otherAmount, setOtherAmount] = useState(0);
+  const [otherNote, setOtherNote] = useState("");
   const [existingTreatments, setExistingTreatments] = useState(0);
   const [nextReservations, setNextReservations] = useState(0);
   const [newCount, setNewCount] = useState(0);
@@ -111,7 +123,13 @@ export default function ReportForm({
 
   const resetForm = useCallback(() => {
     setReportId(null);
+    setWorkStoreId(member.store_id);
     setRevenue(0);
+    setProductSales(0);
+    setNewProductSales(0);
+    setRenewalContracts(0);
+    setOtherAmount(0);
+    setOtherNote("");
     setExistingTreatments(0);
     setNextReservations(0);
     setNewCount(0);
@@ -119,7 +137,7 @@ export default function ReportForm({
     setReflection("");
     setTomorrowAction("");
     setMemos([]);
-  }, []);
+  }, [member.store_id]);
 
   const loadExisting = useCallback(
     async (date: string) => {
@@ -136,7 +154,13 @@ export default function ReportForm({
 
       if (report) {
         setReportId(report.id);
+        setWorkStoreId(report.store_id || member.store_id);
         setRevenue(Number(report.revenue) || 0);
+        setProductSales(Number(report.product_sales) || 0);
+        setNewProductSales(Number(report.new_product_sales) || 0);
+        setRenewalContracts(report.renewal_contracts || 0);
+        setOtherAmount(Number(report.other_amount) || 0);
+        setOtherNote(report.other_note || "");
         setExistingTreatments(report.existing_treatments || 0);
         setNextReservations(report.next_reservations || 0);
         setNewCount(report.new_count || 0);
@@ -154,9 +178,14 @@ export default function ReportForm({
             outcome: m.outcome,
             channel: m.channel || "",
             amount: m.amount != null ? String(m.amount) : "",
+            sessions: m.menu_sessions != null ? String(m.menu_sessions) : "",
             contract_type: m.contract_type ?? (m.outcome === "won" ? "ticket" : null),
             contract_plan: m.contract_plan ?? (m.outcome === "won" ? TICKET_PLANS[0] : null),
-            menu_plan_id: m.menu_plan_id || "",
+            // DB は実 plan(UUID)。UI はグループキー（section|group）に戻す。
+            menu_plan_id: (() => {
+              const p = m.menu_plan_id ? menuPlans.find((x) => x.id === m.menu_plan_id) : undefined;
+              return p ? `${p.section}|${p.group_name}` : "";
+            })(),
             customer_name: m.customer_name || "",
             customer_attr: m.customer_attr || "",
             reason: m.reason || "",
@@ -174,7 +203,7 @@ export default function ReportForm({
       }
       setLoading(false);
     },
-    [member.id, supabase, resetForm]
+    [member.id, member.store_id, supabase, resetForm]
   );
 
   useEffect(() => {
@@ -196,7 +225,8 @@ export default function ReportForm({
     setMessage(null);
     try {
       const payload = {
-        store_id: member.store_id,
+        // 勤務店舗（ヘルプ先計上）。読み込みでは workStoreId に復元される。
+        store_id: workStoreId,
         member_id: member.id,
         report_date: reportDate,
         revenue,
@@ -206,6 +236,12 @@ export default function ReportForm({
         second_visit_reservations: secondVisit,
         reflection: reflection || null,
         tomorrow_action: tomorrowAction || null,
+        // エステ追加項目（整体は 0/空）
+        product_sales: isEsthe ? productSales : 0,
+        new_product_sales: isEsthe ? newProductSales : 0,
+        renewal_contracts: isEsthe ? renewalContracts : 0,
+        other_amount: isEsthe ? otherAmount : 0,
+        other_note: isEsthe ? otherNote || null : null,
       };
       const { data: saved, error: saveErr } = await supabase
         .from("daily_reports")
@@ -220,27 +256,34 @@ export default function ReportForm({
       await supabase.from("contract_memos").delete().eq("report_id", rid);
       const memoRows = memos
         .filter((m) => m.outcome === "won" || m.reason || m.customer_name)
-        .map((m) => ({
-          report_id: rid,
-          store_id: member.store_id,
-          member_id: member.id,
-          outcome: m.outcome,
-          channel: m.channel || null,
-          amount: m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null,
-          // エステはメニュー連携、整体は回数券/定額
-          menu_plan_id: m.outcome === "won" && isEsthe && m.menu_plan_id ? m.menu_plan_id : null,
-          menu_label:
-            m.outcome === "won" && isEsthe && m.menu_plan_id
-              ? menuPlans.find((p) => p.id === m.menu_plan_id)?.label
-                ? `${menuPlans.find((p) => p.id === m.menu_plan_id)!.group_name} ${menuPlans.find((p) => p.id === m.menu_plan_id)!.label ?? ""}`.trim()
-                : null
-              : null,
-          contract_type: m.outcome === "won" && !isEsthe ? m.contract_type : null,
-          contract_plan: m.outcome === "won" && !isEsthe ? m.contract_plan : null,
-          customer_name: m.customer_name || null,
-          customer_attr: m.customer_attr || null,
-          reason: m.reason || null,
-        }));
+        .map((m) => {
+          const won = m.outcome === "won";
+          const amt = m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : null;
+          const sess = m.sessions ? Math.max(0, parseInt(m.sessions, 10) || 0) : null;
+          // menu_plan_id（UI）はグループキー。保存時は実在する plan(UUID) に解決。
+          const grp = isEsthe && m.menu_plan_id ? groupById.get(m.menu_plan_id) : undefined;
+          const resolvedPlan = grp
+            ? grp.plans.find((p) => p.sessions === sess) ?? grp.plans[0]
+            : undefined;
+          return {
+            report_id: rid,
+            store_id: workStoreId,
+            member_id: member.id,
+            outcome: m.outcome,
+            channel: m.channel || null,
+            // 金額・回数は選択でも手入力でも保存（紹介割など変動に対応）
+            amount: won ? amt : null,
+            menu_sessions: won ? sess : null,
+            // エステ: メニュー（グループ）連携。整体: 回数券/定額。
+            menu_plan_id: won && resolvedPlan ? resolvedPlan.id : null,
+            menu_label: won && grp ? grp.groupName : null,
+            contract_type: won && !isEsthe ? m.contract_type : null,
+            contract_plan: won && !isEsthe ? m.contract_plan : null,
+            customer_name: m.customer_name || null,
+            customer_attr: m.customer_attr || null,
+            reason: m.reason || null,
+          };
+        });
       if (memoRows.length > 0) {
         const { error: memoErr } = await supabase.from("contract_memos").insert(memoRows);
         if (memoErr) throw memoErr;
@@ -272,19 +315,58 @@ export default function ReportForm({
   const reservationRatePct =
     existingTreatments > 0 ? Math.round((nextReservations / existingTreatments) * 100) : 0;
 
-  // メニューを section ごとにグルーピング（契約内容セレクト用）
-  const menuOptionGroups = (() => {
-    const order: string[] = [];
-    const map = new Map<string, MenuPlan[]>();
+  // 契約内容セレクトは「メニュー（グループ）」単位に簡素化（探しやすさ向上）。
+  // section 見出し > グループ名（代表1件）。回数/金額は別途 選択/手入力。
+  type MenuGroup = { id: string; groupName: string; section: string; plans: MenuPlan[] };
+  const menuGroupsBySection = (() => {
+    const sectionOrder: string[] = [];
+    const groupMap = new Map<string, MenuGroup>(); // key: section|group
     for (const p of menuPlans) {
-      if (!map.has(p.section)) {
-        map.set(p.section, []);
-        order.push(p.section);
+      const key = `${p.section}|${p.group_name}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, { id: key, groupName: p.group_name, section: p.section, plans: [] });
+        if (!sectionOrder.includes(p.section)) sectionOrder.push(p.section);
       }
-      map.get(p.section)!.push(p);
+      groupMap.get(key)!.plans.push(p);
     }
-    return order.map((section) => ({ section, items: map.get(section)! }));
+    return sectionOrder.map((section) => ({
+      section,
+      groups: Array.from(groupMap.values()).filter((g) => g.section === section),
+    }));
   })();
+  const groupById = new Map<string, MenuGroup>();
+  for (const s of menuGroupsBySection) for (const g of s.groups) groupById.set(g.id, g);
+
+  // 選択中グループの 回数・金額 候補
+  function sessionOptions(groupKey: string): number[] {
+    const g = groupById.get(groupKey);
+    if (!g) return [];
+    return Array.from(new Set(g.plans.map((p) => p.sessions).filter((v): v is number => v != null))).sort((a, b) => a - b);
+  }
+  function priceForSessions(groupKey: string, sessions: number | null): number | null {
+    const g = groupById.get(groupKey);
+    if (!g) return null;
+    const hit = sessions != null ? g.plans.find((p) => p.sessions === sessions) : g.plans[0];
+    return hit?.price ?? null;
+  }
+
+  // メニュー選択時に 回数/金額 を自動補完（手入力で上書き可）
+  function onSelectMenu(i: number, groupKey: string) {
+    const sess = sessionOptions(groupKey);
+    const firstSess = sess.length > 0 ? sess[0] : null;
+    const price = priceForSessions(groupKey, firstSess);
+    updateMemo(i, {
+      menu_plan_id: groupKey,
+      sessions: firstSess != null ? String(firstSess) : "",
+      amount: price != null ? String(price) : "",
+    });
+  }
+  function onSelectSessions(i: number, groupKey: string, sessions: string) {
+    const n = sessions ? parseInt(sessions, 10) : null;
+    const price = priceForSessions(groupKey, n);
+    updateMemo(i, { sessions, ...(price != null ? { amount: String(price) } : {}) });
+  }
+
   const secondVisitRatePct = newCount > 0 ? Math.round((secondVisit / newCount) * 100) : 0;
 
   if (loading) {
@@ -293,7 +375,7 @@ export default function ReportForm({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* 日付・売上 */}
+      {/* 日付・勤務店舗・売上 */}
       <section className="glass-card p-5">
         <div className="flex flex-wrap items-end gap-4">
           <label className="block">
@@ -306,6 +388,22 @@ export default function ReportForm({
               onChange={(e) => setReportDate(e.target.value)}
             />
           </label>
+          {workStores.length > 1 && (
+            <label className="block">
+              <span className="field-label">勤務店舗</span>
+              <select
+                className="field-input"
+                value={workStoreId}
+                onChange={(e) => setWorkStoreId(e.target.value)}
+              >
+                {workStores.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.id === member.store_id ? "（自店）" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="block flex-1 min-w-[160px]">
             <span className="field-label">個人売上（円）</span>
             <input
@@ -319,7 +417,34 @@ export default function ReportForm({
             />
           </label>
         </div>
+        {workStoreId !== member.store_id && (
+          <p className="mt-2 text-[11px] text-amber-600 font-semibold">
+            ヘルプ勤務：この日の売上・成績は「{workStores.find((s) => s.id === workStoreId)?.name}」に計上されます。
+          </p>
+        )}
       </section>
+
+      {/* エステ追加項目（物販・継続・その他） */}
+      {isEsthe && (
+        <section className="glass-card p-5">
+          <h2 className="text-sm font-bold text-slate-800 mb-3">物販・継続・その他</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <NumberField label="物販売上（円）" color="orange" value={productSales} onChange={setProductSales} />
+            <NumberField label="新規の物販売上（円）" color="blue" value={newProductSales} onChange={setNewProductSales} />
+            <NumberField label="継続契約（件）" color="emerald" value={renewalContracts} onChange={setRenewalContracts} />
+            <NumberField label="その他（円）" color="slate" value={otherAmount} onChange={setOtherAmount} />
+          </div>
+          <label className="block mt-3">
+            <span className="field-label">その他メモ</span>
+            <input
+              className="field-input"
+              value={otherNote}
+              onChange={(e) => setOtherNote(e.target.value)}
+              placeholder="その他売上の内訳など"
+            />
+          </label>
+        </section>
+      )}
 
       {/* 既存施術 → 次回予約（整体・エステ共通） */}
       <section className="glass-card p-5">
@@ -436,29 +561,58 @@ export default function ReportForm({
                 </label>
               </div>
 
-              {/* 契約内容（契約ありのみ） */}
+              {/* 契約内容（契約ありのみ・エステ）: メニュー選択 + 回数/金額（選択・手入力両対応） */}
               {m.outcome === "won" && isEsthe && (
-                <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5">
-                  <p className="text-[11px] font-semibold text-slate-500 mb-2">契約内容（料金表メニュー）</p>
-                  <select
-                    className="field-input !py-2"
-                    value={m.menu_plan_id}
-                    onChange={(e) => updateMemo(i, { menu_plan_id: e.target.value })}
-                  >
-                    <option value="">-- メニューを選択 --</option>
-                    {menuOptionGroups.map((g) => (
-                      <optgroup key={g.section} label={g.section}>
-                        {g.items.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {[p.group_name, p.variant, p.label].filter(Boolean).join(" ")}
-                            {p.price != null ? `（¥${Number(p.price).toLocaleString()}）` : ""}
-                          </option>
+                <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5 space-y-2">
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-500 mb-1">契約メニュー</p>
+                    <select
+                      className="field-input !py-2"
+                      value={m.menu_plan_id}
+                      onChange={(e) => onSelectMenu(i, e.target.value)}
+                    >
+                      <option value="">-- メニューを選択 --</option>
+                      {menuGroupsBySection.map((s) => (
+                        <optgroup key={s.section} label={s.section}>
+                          {s.groups.map((g) => (
+                            <option key={g.id} value={g.id}>{g.groupName}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="block text-[11px] text-slate-500 mb-1">回数（選択 or 入力）</span>
+                      <input
+                        className="field-input !py-2"
+                        inputMode="numeric"
+                        list={`sess-${i}`}
+                        value={m.sessions}
+                        onChange={(e) => onSelectSessions(i, m.menu_plan_id, e.target.value)}
+                        placeholder="例: 8"
+                      />
+                      <datalist id={`sess-${i}`}>
+                        {sessionOptions(m.menu_plan_id).map((s) => (
+                          <option key={s} value={s} />
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                      </datalist>
+                    </label>
+                    <label className="block">
+                      <span className="block text-[11px] text-slate-500 mb-1">金額（円・変更可）</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        className="field-input !py-2"
+                        value={m.amount}
+                        onChange={(e) => updateMemo(i, { amount: e.target.value })}
+                        placeholder="紹介割等は手入力"
+                      />
+                    </label>
+                  </div>
                   {menuPlans.length === 0 && (
-                    <p className="text-[11px] text-amber-600 mt-1">料金表メニューが未登録です。管理画面で登録してください。</p>
+                    <p className="text-[11px] text-amber-600">料金表メニューが未登録です。管理画面で登録してください。</p>
                   )}
                 </div>
               )}
