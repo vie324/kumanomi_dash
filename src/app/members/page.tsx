@@ -26,6 +26,12 @@ export default async function MembersPage() {
     return <PermissionDenied member={member} store={store} message="会員・回数券の閲覧権限がありません。" />;
   }
 
+  // スコープ内の店舗一覧（店舗切替用）
+  let storesQuery = supabase.from("stores").select("*").eq("active", true).order("name", { ascending: true });
+  if (storeIds) storesQuery = storesQuery.in("id", storeIds);
+  const { data: storeRows } = await storesQuery;
+  const scopeStores = (storeRows as Store[]) || [];
+
   let customersQuery = supabase.from("customers").select("*").order("name", { ascending: true });
   let plansQuery = supabase.from("ticket_plans").select("*").order("sessions", { ascending: true });
   let ticketsQuery = supabase
@@ -50,6 +56,7 @@ export default async function MembersPage() {
       <main className="max-w-5xl mx-auto px-4 py-5">
         <MembersView
           member={member as Member}
+          stores={scopeStores}
           initialCustomers={(customers as Customer[]) || []}
           initialPlans={(plans as TicketPlan[]) || []}
           initialTickets={(tickets as CustomerTicket[]) || []}

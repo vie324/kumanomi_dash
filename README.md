@@ -70,6 +70,7 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 19. `supabase/migrations/0019_report_per_store.sql` … 日報の一意制約を(member,date,store)へ（ヘルプ勤務で同日2店舗の計上に対応）
 20. `supabase/migrations/0020_ticket_rpc.sql` … 回数券消化/取消を行ロックで原子化（consume_ticket/restore_ticket）
 21. `supabase/migrations/0021_posture_treatment_records.sql` … 姿勢分析・施術レポートの保存テーブル＋RLS（顧客履歴）
+22. `supabase/migrations/0022_rls_member_identity.sql` … RLS本人性ハードニング（日報/契約メモ/勤怠の書込で member_id を書き手に固定、他人名義はmanage限定）
 18. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
 16. （任意）`supabase/seed.sql` … 成増店レコード
 

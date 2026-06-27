@@ -3,6 +3,7 @@ import { loadPageAccess } from "@/lib/admin-guard";
 import { canEdit } from "@/lib/permissions";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
+import PermissionDenied from "@/components/PermissionDenied";
 import MenuView from "@/components/MenuView";
 import type { MenuPlan, Store } from "@/lib/types";
 
@@ -21,6 +22,10 @@ export default async function MenuPage() {
     .eq("id", member.store_id)
     .maybeSingle();
   const store = (storeRow as Store) ?? null;
+
+  if (!access.allowed) {
+    return <PermissionDenied member={member} store={store} message="料金表の閲覧権限がありません。" />;
+  }
 
   // 本人の業態のメニューを取得（全店舗共通 + 自店舗限定）
   const { data: planRows } = await supabase

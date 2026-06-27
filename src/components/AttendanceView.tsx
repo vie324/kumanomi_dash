@@ -79,7 +79,9 @@ export default function AttendanceView({
   const [error, setError] = useState<string | null>(null);
 
   const isClockedIn = !!(today && today.clock_in_at && !today.clock_out_at);
-  const isDone = !!(today && today.clock_out_at);
+  // 「本日の勤務完了」は今日のレコードが退勤済みのときのみ（前日の打刻漏れを退勤しても
+  // 今日の出勤を妨げない）
+  const isDone = !!(today && today.clock_out_at && today.work_date === todayDate);
 
   async function checkGps() {
     setGps({ status: "checking", lat: null, lng: null, distance: null, error: null });

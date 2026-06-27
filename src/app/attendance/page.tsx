@@ -52,9 +52,26 @@ export default async function AttendancePage() {
     .order("clock_in_at", { ascending: false });
   const records = (recordRows as AttendanceRecord[]) || [];
 
-  // 今日の未退勤レコード
+  // 未退勤の最新シフト（月またぎ・前日からの打刻漏れも拾う）
+  const { data: openRow } = await supabase
+    .from("attendance_records")
+    .select("*")
+    .eq("member_id", member.id)
+    .not("clock_in_at", "is", null)
+    .is("clock_out_at", null)
+    .order("clock_in_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const openShift = (openRow as AttendanceRecord) ?? null;
+
+  // 表示用：未退勤シフトが当月レコードに無ければ先頭に補う
+  if (openShift && !records.some((r) => r.id === openShift.id)) {
+    records.unshift(openShift);
+  }
+
+  // 打刻対象：未退勤シフト優先、無ければ今日のレコード
   const todayRecord =
-    records.find((r) => r.work_date === today && !r.clock_out_at) ||
+    openShift ||
     records.find((r) => r.work_date === today) ||
     null;
 

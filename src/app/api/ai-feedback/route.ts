@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentMember, getPermissionMatrix } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { generateFeedback } from "@/lib/ai-feedback";
 import type { ContractMemo, DailyReport, Store } from "@/lib/types";
 
@@ -43,8 +45,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "report not found" }, { status: 404 });
     }
 
-    // 既存フィードバックがあり force でなければ返す
-    if (!force) {
+    // 再生成(force)は有料APIを消費するため、日報の本人または manage 権限者のみ許可。
+    // それ以外の閲覧者は既存フィードバックの再生成を起動できない（コスト保護）。
+    const actor = await getCurrentMember();
+    const matrix = await getPermissionMatrix();
+    const isAuthor = !!actor && actor.id === (report as DailyReport).member_id;
+    const canManage = !!actor && can(matrix, actor, "daily_reports", "manage");
+    const allowForce = force && (isAuthor || canManage);
+
+    // 既存フィードバックがあり、force が許可されていなければ返す
+    if (!allowForce) {
       const { data: existing } = await supabase
         .from("ai_feedback")
         .select("*")
