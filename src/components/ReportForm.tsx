@@ -116,6 +116,44 @@ export default function ReportForm({
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // オフライン下書き（未送信の入力を localStorage に退避し、復元する）
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftKeyFor = useCallback(
+    (sid: string, date: string) => `kdash_dr_${member.id}_${sid}_${date}`,
+    [member.id]
+  );
+  type Draft = {
+    revenue: number;
+    productSales: number;
+    newProductSales: number;
+    renewalContracts: number;
+    otherAmount: number;
+    otherNote: string;
+    existingTreatments: number;
+    nextReservations: number;
+    newCount: number;
+    secondVisit: number;
+    reflection: string;
+    tomorrowAction: string;
+    memos: MemoDraft[];
+  };
+  const applyDraft = useCallback((d: Draft) => {
+    setReportId(null);
+    setRevenue(d.revenue || 0);
+    setProductSales(d.productSales || 0);
+    setNewProductSales(d.newProductSales || 0);
+    setRenewalContracts(d.renewalContracts || 0);
+    setOtherAmount(d.otherAmount || 0);
+    setOtherNote(d.otherNote || "");
+    setExistingTreatments(d.existingTreatments || 0);
+    setNextReservations(d.nextReservations || 0);
+    setNewCount(d.newCount || 0);
+    setSecondVisit(d.secondVisit || 0);
+    setReflection(d.reflection || "");
+    setTomorrowAction(d.tomorrowAction || "");
+    setMemos(Array.isArray(d.memos) ? d.memos : []);
+  }, []);
+
   // 入力欄のみクリア（勤務店舗・日付は維持＝店舗切替で別の日報を扱える）
   const clearFields = useCallback(() => {
     setReportId(null);
@@ -206,17 +244,50 @@ export default function ReportForm({
           .eq("report_id", report.id)
           .maybeSingle();
         if (fb) setFeedback(fb as FeedbackData);
+        setDraftRestored(false);
       } else {
-        clearFields();
+        // サーバーに日報が無ければ、未送信の下書きがあれば復元
+        let restored = false;
+        if (typeof window !== "undefined") {
+          const raw = localStorage.getItem(draftKeyFor(sid, date));
+          if (raw) {
+            try {
+              applyDraft(JSON.parse(raw) as Draft);
+              restored = true;
+            } catch {
+              /* 壊れた下書きは無視 */
+            }
+          }
+        }
+        if (!restored) clearFields();
+        setDraftRestored(restored);
       }
       setLoading(false);
     },
-    [member.id, supabase, menuPlans, clearFields]
+    [member.id, supabase, menuPlans, clearFields, applyDraft, draftKeyFor]
   );
 
   useEffect(() => {
     loadExisting(reportDate, workStoreId);
   }, [reportDate, workStoreId, loadExisting]);
+
+  // 入力を未送信の下書きとして自動退避（通信断・リロードでも消えない）
+  useEffect(() => {
+    if (loading || loadFailed || typeof window === "undefined") return;
+    const draft: Draft = {
+      revenue, productSales, newProductSales, renewalContracts, otherAmount, otherNote,
+      existingTreatments, nextReservations, newCount, secondVisit, reflection, tomorrowAction, memos,
+    };
+    try {
+      localStorage.setItem(draftKeyFor(workStoreId, reportDate), JSON.stringify(draft));
+    } catch {
+      /* 容量超過等は無視 */
+    }
+  }, [
+    loading, loadFailed, revenue, productSales, newProductSales, renewalContracts, otherAmount,
+    otherNote, existingTreatments, nextReservations, newCount, secondVisit, reflection,
+    tomorrowAction, memos, workStoreId, reportDate, draftKeyFor,
+  ]);
 
   const updateMemo = (i: number, patch: Partial<MemoDraft>) =>
     setMemos((p) => p.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
@@ -302,6 +373,15 @@ export default function ReportForm({
       }
 
       setMessage("日報を保存しました。");
+      // 送信できたので未送信の下書きは破棄
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem(draftKeyFor(workStoreId, reportDate));
+        } catch {
+          /* noop */
+        }
+      }
+      setDraftRestored(false);
 
       if (generateAi) {
         setFeedbackLoading(true);
@@ -391,6 +471,28 @@ export default function ReportForm({
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {draftRestored && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-semibold text-amber-700">
+          <span>未送信の下書きを復元しました。</span>
+          <button
+            type="button"
+            className="text-amber-600 hover:text-amber-800 underline"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                try {
+                  localStorage.removeItem(draftKeyFor(workStoreId, reportDate));
+                } catch {
+                  /* noop */
+                }
+              }
+              clearFields();
+              setDraftRestored(false);
+            }}
+          >
+            破棄
+          </button>
+        </div>
+      )}
       {/* 日付・勤務店舗・売上 */}
       <section className="glass-card p-5">
         <div className="flex flex-wrap items-end gap-4">
