@@ -19,18 +19,19 @@ function fmtTime(iso: string | null): string {
   }).format(d);
 }
 
-// CSV用の実働分（数値）
+// CSV用の実働分（数値）。休憩時間を差し引く。
 function minutesWorked(rec: AttendanceRecord): number {
   if (!rec.clock_in_at || !rec.clock_out_at) return 0;
   const ms = new Date(rec.clock_out_at).getTime() - new Date(rec.clock_in_at).getTime();
-  return isNaN(ms) || ms <= 0 ? 0 : Math.round(ms / 60000);
+  if (isNaN(ms) || ms <= 0) return 0;
+  return Math.max(0, Math.round(ms / 60000) - (rec.break_minutes || 0));
 }
 
 function workDuration(rec: AttendanceRecord): string {
   if (!rec.clock_in_at || !rec.clock_out_at) return "";
   const ms = new Date(rec.clock_out_at).getTime() - new Date(rec.clock_in_at).getTime();
   if (isNaN(ms) || ms <= 0) return "";
-  const min = Math.round(ms / 60000);
+  const min = Math.max(0, Math.round(ms / 60000) - (rec.break_minutes || 0));
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${h}時間${m}分`;
@@ -90,6 +91,7 @@ export default function AttendanceView({
   // 「本日の勤務完了」は今日のレコードが退勤済みのときのみ（前日の打刻漏れを退勤しても
   // 今日の出勤を妨げない）
   const isDone = !!(today && today.clock_out_at && today.work_date === todayDate);
+  const isOnBreak = !!(today && today.break_started_at && !today.clock_out_at);
 
   async function checkGps() {
     setGps({ status: "checking", lat: null, lng: null, distance: null, error: null });
@@ -166,6 +168,51 @@ export default function AttendanceView({
     }
   }
 
+  async function handleBreakStart() {
+    if (!today) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from("attendance_records")
+        .update({ break_started_at: new Date().toISOString() })
+        .eq("id", today.id)
+        .select()
+        .single();
+      if (error) throw error;
+      const rec = data as AttendanceRecord;
+      setToday(rec);
+      setRecords((prev) => prev.map((r) => (r.id === rec.id ? rec : r)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "休憩開始の記録に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleBreakEnd() {
+    if (!today || !today.break_started_at) return;
+    const added = Math.max(0, Math.round((Date.now() - new Date(today.break_started_at).getTime()) / 60000));
+    setSaving(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase
+        .from("attendance_records")
+        .update({ break_minutes: (today.break_minutes || 0) + added, break_started_at: null })
+        .eq("id", today.id)
+        .select()
+        .single();
+      if (error) throw error;
+      const rec = data as AttendanceRecord;
+      setToday(rec);
+      setRecords((prev) => prev.map((r) => (r.id === rec.id ? rec : r)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "休憩終了の記録に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const gpsBadge = useMemo(() => {
     if (gps.status === "idle") return null;
     if (gps.status === "checking") return { color: "#64748b", label: "GPS 取得中…" };
@@ -185,7 +232,7 @@ export default function AttendanceView({
     for (const r of records) {
       if (r.clock_in_at && r.clock_out_at) {
         const ms = new Date(r.clock_out_at).getTime() - new Date(r.clock_in_at).getTime();
-        if (!isNaN(ms) && ms > 0) totalMin += ms / 60000;
+        if (!isNaN(ms) && ms > 0) totalMin += Math.max(0, ms / 60000 - (r.break_minutes || 0));
       }
     }
     const h = Math.floor(totalMin / 60);
@@ -213,7 +260,7 @@ export default function AttendanceView({
       if (r.clock_in_at) a.days.add(r.work_date);
       if (r.clock_in_at && r.clock_out_at) {
         const ms = new Date(r.clock_out_at).getTime() - new Date(r.clock_in_at).getTime();
-        if (!isNaN(ms) && ms > 0) a.minutes += ms / 60000;
+        if (!isNaN(ms) && ms > 0) a.minutes += Math.max(0, ms / 60000 - (r.break_minutes || 0));
       }
       if (r.work_date === todayDate && (!a.todayRec || !r.clock_out_at)) a.todayRec = r;
     }
@@ -352,9 +399,35 @@ export default function AttendanceView({
               {saving ? "記録中…" : isDone ? "本日の勤務は完了しています" : "出勤"}
             </button>
           ) : (
-            <button className="btn-primary w-full !py-3.5 text-base" onClick={handleClockOut} disabled={saving}>
-              {saving ? "記録中…" : "退勤"}
-            </button>
+            <>
+              {isOnBreak && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-bold text-amber-700">
+                  休憩中…（{today?.break_minutes ? `これまで ${today.break_minutes}分 + ` : ""}計測中）
+                </div>
+              )}
+              <div className="flex gap-2">
+                {isOnBreak ? (
+                  <button className="btn-ghost flex-1 !py-3.5 text-base" onClick={handleBreakEnd} disabled={saving}>
+                    {saving ? "記録中…" : "休憩終了"}
+                  </button>
+                ) : (
+                  <button className="btn-ghost flex-1 !py-3.5 text-base" onClick={handleBreakStart} disabled={saving}>
+                    {saving ? "記録中…" : "休憩開始"}
+                  </button>
+                )}
+                <button
+                  className="btn-primary flex-1 !py-3.5 text-base"
+                  onClick={handleClockOut}
+                  disabled={saving || isOnBreak}
+                  title={isOnBreak ? "休憩を終了してから退勤してください" : undefined}
+                >
+                  {saving ? "記録中…" : "退勤"}
+                </button>
+              </div>
+              {today && today.break_minutes > 0 && !isOnBreak && (
+                <p className="text-[11px] text-slate-400 text-center">本日の休憩 計 {today.break_minutes}分</p>
+              )}
+            </>
           )}
 
           {error && <p className="text-sm text-rose-600 font-semibold">{error}</p>}
