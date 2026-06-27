@@ -31,9 +31,13 @@ export async function getCurrentMember(): Promise<Member | null> {
 export async function getPermissionMatrix(): Promise<PermissionMatrix> {
   const supabase = createClient();
   const { data, error } = await supabase.from("role_permissions").select("role, resource, level");
-  // エラーを握りつぶすと空マトリクス＝全員ロックアウトになり原因が見えない。
-  // 例外として表面化し、error.tsx で再読み込み導線を出す。
-  if (error) throw new Error(`権限情報の取得に失敗しました: ${error.message}`);
+  // 読み取りに失敗してもここで throw すると、このマトリクスは全ページが通るため
+  // 画面全体がクラッシュ（error.tsx）してしまう。サーバーログに残しつつ空で返し、
+  // 縮退（必要な権限が無い表示）にとどめてアプリを落とさない。
+  if (error) {
+    console.error("[getPermissionMatrix] role_permissions の取得に失敗:", error.message);
+    return {};
+  }
   const matrix: PermissionMatrix = {};
   for (const row of (data as { role: string; resource: Resource; level: PermLevel }[]) || []) {
     (matrix[row.role] ||= {})[row.resource] = row.level;
@@ -54,13 +58,13 @@ export async function getAccessibleStoreIds(member: Member): Promise<string[] | 
       .from("member_store_access")
       .select("store_id")
       .eq("member_id", member.id);
-    // エラーを無視すると担当店舗が空になりスコープが静かに自店のみへ縮小する
-    if (error) throw new Error(`担当店舗の取得に失敗しました: ${error.message}`);
+    // 失敗時は throw せずログ＋空扱い（最終的に自店のみへ安全側に縮退）。
+    if (error) console.error("[getAccessibleStoreIds] member_store_access の取得に失敗:", error.message);
     assignedStoreIds = (data as { store_id: string }[] | null)?.map((r) => r.store_id) ?? [];
   }
   if (scope === "department" || member.role === "dept_manager") {
     const { data, error } = await supabase.from("stores").select("id, department_id");
-    if (error) throw new Error(`店舗一覧の取得に失敗しました: ${error.message}`);
+    if (error) console.error("[getAccessibleStoreIds] stores の取得に失敗:", error.message);
     allStores = (data as { id: string; department_id: string | null }[]) || [];
   }
 
