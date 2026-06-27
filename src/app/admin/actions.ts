@@ -3,8 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentMember, getPermissionMatrix } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { can, type PermLevel, type Resource } from "@/lib/permissions";
-import type { Role, Scope } from "@/lib/types";
+import {
+  can,
+  effectiveScope,
+  roleRank,
+  scopeRank,
+  type PermLevel,
+  type Resource,
+} from "@/lib/permissions";
+import type { Member, Role, Scope } from "@/lib/types";
 
 // 共通: staff_admin を manage できるユーザーか検証
 async function assertStaffAdmin() {
@@ -17,9 +24,35 @@ async function assertStaffAdmin() {
   return member;
 }
 
-// 権限マトリクスの1セルを更新
+// 権限昇格ガード: actor は自分の役割/データ範囲を超える付与をできない。
+function assertAssignable(
+  actor: Member,
+  targetRole: Role,
+  targetScope: Scope | null,
+  opts: { targetId?: string; prevRole?: Role } = {}
+) {
+  const actorRoleRank = roleRank(actor.role);
+  if (roleRank(targetRole) > actorRoleRank) {
+    throw new Error("自分より上位の役割は割り当てできません。");
+  }
+  // 自分自身の昇格は不可
+  if (opts.targetId && opts.targetId === actor.id && opts.prevRole && roleRank(targetRole) > roleRank(opts.prevRole)) {
+    throw new Error("自分自身の役割を上げることはできません。");
+  }
+  if (targetScope) {
+    const actorScopeRank = scopeRank(effectiveScope(actor));
+    if (scopeRank(targetScope) > actorScopeRank) {
+      throw new Error("自分より広いデータ範囲は割り当てできません。");
+    }
+  }
+}
+
+// 権限マトリクスの1セルを更新（capability マトリクスは owner 限定）
 export async function updateRolePermission(role: Role, resource: Resource, level: PermLevel) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
+  if (actor.role !== "owner") {
+    throw new Error("権限マトリクスの編集は全体管理者(owner)のみ可能です。");
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from("role_permissions")
@@ -35,8 +68,16 @@ export async function updateMemberRole(args: {
   scope: Scope | null;
   departmentId: string | null;
 }) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const admin = createAdminClient();
+  // 対象の現在の役割（自己昇格チェック用）
+  const { data: targetRow } = await admin
+    .from("members")
+    .select("role")
+    .eq("id", args.memberId)
+    .maybeSingle();
+  const prevRole = (targetRow as { role: Role } | null)?.role;
+  assertAssignable(actor, args.role, args.scope, { targetId: args.memberId, prevRole });
   const { error } = await admin
     .from("members")
     .update({ role: args.role, scope: args.scope, department_id: args.departmentId })
@@ -73,10 +114,12 @@ export async function createStaffMember(args: {
   storeId: string;
   role?: Role;
 }) {
-  await assertStaffAdmin();
+  const actor = await assertStaffAdmin();
   const name = args.name.trim();
   const email = args.email.trim().toLowerCase();
   const role: Role = args.role ?? "staff";
+  // 自分より上位の役割でスタッフを作成することはできない
+  assertAssignable(actor, role, role === "staff" ? "store" : null);
   if (!name) throw new Error("氏名を入力してください");
   if (!email) throw new Error("メールアドレスを入力してください");
   if (!args.password || args.password.length < 6) {

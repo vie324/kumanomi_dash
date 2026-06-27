@@ -4,6 +4,7 @@ import { getPermissionMatrix } from "@/lib/auth";
 import { can, canEdit, type Resource } from "@/lib/permissions";
 import BrandLogo from "./BrandLogo";
 import ThemeApplier from "./ThemeApplier";
+import MobileNav from "./MobileNav";
 
 // nav 項目ごとに、表示に必要な閲覧リソースを紐付け。
 // genreOnly を指定すると、その業態のメンバーにだけ表示する。
@@ -52,8 +53,10 @@ export default async function AppHeader({
   const nav = admin ? [...visibleNav, { href: "/admin/members", label: "権限管理" }] : visibleNav;
   const brand = GENRE_BRAND[member.genre];
   return (
-    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-slate-100">
+    <header className="sticky top-0 z-30 bg-white/75 backdrop-blur-xl border-b border-white/60 shadow-[0_2px_16px_-12px_rgba(15,23,42,0.3)]">
       <ThemeApplier genre={member.genre} />
+      {/* 業態テーマのアクセントライン */}
+      <div className="h-0.5 bg-gradient-to-r from-sise-400 via-sise-500 to-sise-600" />
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3 min-w-0">
@@ -61,25 +64,31 @@ export default async function AppHeader({
             <BrandLogo src={brand.logo} alt={brand.name} />
             {/* ロゴ未配置時のフォールバック表示用にブランド名を sr-only で保持 */}
             <span className="sr-only">{brand.name}</span>
-            <p className="text-[11px] text-slate-400 truncate">
-              {store?.name ? `${store.name} ・ ` : ""}{member.name} さん
-            </p>
+            <div className="min-w-0">
+              {store?.name && (
+                <p className="text-xs font-bold text-slate-700 truncate leading-tight">{store.name}</p>
+              )}
+              <p className="text-[11px] text-slate-400 truncate leading-tight">{member.name} さん</p>
+            </div>
           </div>
           <form action="/auth/signout" method="post">
-            <button className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1">ログアウト</button>
+            <button className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              ログアウト
+            </button>
           </form>
         </div>
-        <nav className="flex gap-1 -mb-px overflow-x-auto">
+        {/* デスクトップ：上部ピルタブ（モバイルは下部ナビへ） */}
+        <nav className="hidden md:flex gap-1 pb-2 overflow-x-auto no-scrollbar">
           {nav.map((n) => {
             const isActive = active === n.href;
             return (
               <Link
                 key={n.href}
                 href={n.href}
-                className={`whitespace-nowrap px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+                className={`whitespace-nowrap px-3.5 py-1.5 text-sm font-semibold rounded-full transition-all duration-200 ${
                   isActive
-                    ? "border-sise-500 text-sise-600"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
+                    ? "bg-gradient-to-br from-sise-500 to-sise-600 text-white shadow-[0_6px_14px_-6px_var(--ring-shadow)]"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                 }`}
               >
                 {n.label}
@@ -88,6 +97,7 @@ export default async function AppHeader({
           })}
         </nav>
       </div>
+      <MobileNav items={nav} active={active} />
     </header>
   );
 }

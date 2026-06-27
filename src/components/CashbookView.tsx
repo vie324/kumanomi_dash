@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { todayJST, monthJST, shiftMonth, formatMonthLabel, formatDateLabel } from "@/lib/date";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -16,17 +17,6 @@ import {
 
 function yen(n: number): string {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
-}
-function todayJST(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-function monthJST(): string {
-  return todayJST().slice(0, 7);
 }
 
 type FormState = {
@@ -58,15 +48,24 @@ function emptyForm(date: string, recorder: string): FormState {
 export default function CashbookView({
   member,
   store,
+  stores = [],
   initialEntries,
   canEdit = true,
 }: {
   member: Member;
   store: Store | null;
+  stores?: Store[];
   initialEntries: CashbookEntry[];
   canEdit?: boolean;
 }) {
   const supabase = createClient();
+  // 店舗選択（複数店舗が見えるユーザー向け）。残高・集計・記帳は選択店舗で行う。
+  const storeOptions = stores.length > 0 ? stores : store ? [store] : [];
+  const initialStoreId =
+    storeOptions.find((s) => s.id === member.store_id)?.id ?? storeOptions[0]?.id ?? member.store_id;
+  const [storeId, setStoreId] = useState(initialStoreId);
+  const activeStore = storeOptions.find((s) => s.id === storeId) ?? store;
+
   const [entries, setEntries] = useState<CashbookEntry[]>(initialEntries);
   const [viewMonth, setViewMonth] = useState(monthJST());
   const [showForm, setShowForm] = useState(false);
@@ -78,28 +77,34 @@ export default function CashbookView({
   const [showCashCheck, setShowCashCheck] = useState(false);
   const [cashCheckAmount, setCashCheckAmount] = useState("");
 
-  // 現金残高（全期間）
+  // 選択店舗のエントリのみ対象
+  const storeEntries = useMemo(
+    () => entries.filter((e) => e.store_id === storeId),
+    [entries, storeId]
+  );
+
+  // 現金残高（選択店舗・全期間）
   const cashBalance = useMemo(() => {
-    const cashIn = entries
+    const cashIn = storeEntries
       .filter((e) => e.type === "income" && e.payment_method === "CASH")
       .reduce((s, e) => s + Number(e.amount), 0);
-    const cashOut = entries
+    const cashOut = storeEntries
       .filter((e) => e.type === "expense" && e.payment_method === "CASH")
       .reduce((s, e) => s + Number(e.amount), 0);
     return cashIn - cashOut;
-  }, [entries]);
+  }, [storeEntries]);
 
   // 当月エントリ
   const monthEntries = useMemo(
     () =>
-      entries
+      storeEntries
         .filter((e) => e.entry_date.startsWith(viewMonth))
         .sort(
           (a, b) =>
             b.entry_date.localeCompare(a.entry_date) ||
             (b.created_at || "").localeCompare(a.created_at || "")
         ),
-    [entries, viewMonth]
+    [storeEntries, viewMonth]
   );
 
   // 日別グループ
@@ -135,9 +140,7 @@ export default function CashbookView({
   }
 
   function changeMonth(delta: number) {
-    const d = new Date(viewMonth + "-01T00:00:00");
-    d.setMonth(d.getMonth() + delta);
-    setViewMonth(d.toISOString().slice(0, 7));
+    setViewMonth((m) => shiftMonth(m, delta));
   }
 
   function startEdit(e: CashbookEntry) {
@@ -166,7 +169,7 @@ export default function CashbookView({
     setSaving(true);
     setError(null);
     const payload = {
-      store_id: member.store_id,
+      store_id: storeId,
       member_id: member.id,
       entry_date: form.entry_date,
       type: form.type,
@@ -225,7 +228,7 @@ export default function CashbookView({
       return;
     }
     const payload = {
-      store_id: member.store_id,
+      store_id: storeId,
       member_id: member.id,
       entry_date: todayJST(),
       type: (diff > 0 ? "income" : "expense") as CashEntryType,
@@ -253,10 +256,22 @@ export default function CashbookView({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">出納帳</h1>
-          <p className="text-xs text-slate-500">{store?.name}</p>
+          {storeOptions.length > 1 ? (
+            <select
+              className="mt-1 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-sise-100"
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
+            >
+              {storeOptions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-xs text-slate-500">{activeStore?.name}</p>
+          )}
         </div>
         {canEdit && (
           <button
@@ -452,9 +467,7 @@ export default function CashbookView({
         <div className="flex items-center justify-between mb-4">
           <button className="p-2 rounded-xl hover:bg-sise-50 text-slate-500" onClick={() => changeMonth(-1)}>‹</button>
           <div className="text-center">
-            <h2 className="text-lg font-bold text-slate-800">
-              {new Date(viewMonth + "-01T00:00:00").toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}
-            </h2>
+            <h2 className="text-lg font-bold text-slate-800">{formatMonthLabel(viewMonth)}</h2>
             <p className="text-xs text-slate-400">{monthEntries.length}件の記録</p>
           </div>
           <button className="p-2 rounded-xl hover:bg-sise-50 text-slate-500" onClick={() => changeMonth(1)}>›</button>
@@ -472,11 +485,7 @@ export default function CashbookView({
             const dIn = dayEntries.filter((e) => e.type === "income").reduce((s, e) => s + Number(e.amount), 0);
             const dOut = dayEntries.filter((e) => e.type === "expense").reduce((s, e) => s + Number(e.amount), 0);
             const dTreat = dayEntries.reduce((s, e) => s + (e.treatment_count || 0), 0);
-            const label = new Date(date + "T00:00:00").toLocaleDateString("ja-JP", {
-              month: "short",
-              day: "numeric",
-              weekday: "short",
-            });
+            const label = formatDateLabel(date);
             return (
               <div key={date}>
                 <div className="flex items-center justify-between mb-2">

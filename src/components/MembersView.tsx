@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { todayJST, addDaysISO as addDays } from "@/lib/date";
 import {
   ticketStatus,
   ticketStatusLabel,
@@ -14,19 +15,6 @@ import {
 
 function yen(n: number): string {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
-}
-function todayJST(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-function addDays(date: string, days: number): string {
-  const d = new Date(date + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 const STATUS_STYLE: Record<TicketStatus, string> = {
@@ -126,15 +114,11 @@ export default function MembersView({
     setBusy(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from("customer_tickets")
-        .update({ remaining_sessions: t.remaining_sessions - 1 })
-        .eq("id", t.id)
-        .select()
-        .single();
+      // 行ロック付きの原子的消化（残数の同時更新でロストアップデートを防ぐ）
+      const { data, error } = await supabase.rpc("consume_ticket", { p_ticket: t.id });
       if (error) throw error;
-      await supabase.from("ticket_usages").insert({ ticket_id: t.id, member_id: member.id });
-      setTickets((prev) => prev.map((x) => (x.id === t.id ? (data as CustomerTicket) : x)));
+      const updated = (Array.isArray(data) ? data[0] : data) as CustomerTicket;
+      setTickets((prev) => prev.map((x) => (x.id === t.id ? updated : x)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "消化記録に失敗しました");
     } finally {
@@ -145,15 +129,12 @@ export default function MembersView({
   async function undoSession(t: CustomerTicket) {
     if (t.remaining_sessions >= t.total_sessions) return;
     setBusy(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
-        .from("customer_tickets")
-        .update({ remaining_sessions: t.remaining_sessions + 1 })
-        .eq("id", t.id)
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc("restore_ticket", { p_ticket: t.id });
       if (error) throw error;
-      setTickets((prev) => prev.map((x) => (x.id === t.id ? (data as CustomerTicket) : x)));
+      const updated = (Array.isArray(data) ? data[0] : data) as CustomerTicket;
+      setTickets((prev) => prev.map((x) => (x.id === t.id ? updated : x)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "取り消しに失敗しました");
     } finally {

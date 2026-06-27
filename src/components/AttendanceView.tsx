@@ -2,16 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { todayJST } from "@/lib/date";
 import { distanceMeters, type AttendanceRecord, type Member, type Store } from "@/lib/types";
 
-function todayJST(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+export type TeamRecord = AttendanceRecord & { member_name: string; store_name: string };
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "—";
@@ -63,14 +57,21 @@ export default function AttendanceView({
   store,
   initialRecords,
   initialToday,
+  canSeeTeam = false,
+  teamRecords = [],
+  today: todayProp,
 }: {
   member: Member;
   store: Store | null;
   initialRecords: AttendanceRecord[];
   initialToday: AttendanceRecord | null;
+  canSeeTeam?: boolean;
+  teamRecords?: TeamRecord[];
+  today?: string;
 }) {
   const supabase = createClient();
-  const [tab, setTab] = useState<"clock" | "history">("clock");
+  const [tab, setTab] = useState<"clock" | "history" | "team">("clock");
+  const todayDate = todayProp ?? todayJST();
   const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords);
   const [today, setToday] = useState<AttendanceRecord | null>(initialToday);
   const [gps, setGps] = useState<GpsState>({ status: "idle", lat: null, lng: null, distance: null, error: null });
@@ -182,6 +183,50 @@ export default function AttendanceView({
     return { days, totalLabel: `${h}時間${m}分` };
   }, [records]);
 
+  // チーム集計（管理者向け）。メンバーごとに本日の状態と当月の勤務日数/時間を集計。
+  const teamData = useMemo(() => {
+    type Agg = {
+      member_id: string;
+      name: string;
+      store_name: string;
+      todayRec: TeamRecord | null;
+      days: Set<string>;
+      minutes: number;
+    };
+    const map = new Map<string, Agg>();
+    for (const r of teamRecords) {
+      let a = map.get(r.member_id);
+      if (!a) {
+        a = { member_id: r.member_id, name: r.member_name, store_name: r.store_name, todayRec: null, days: new Set(), minutes: 0 };
+        map.set(r.member_id, a);
+      }
+      if (r.clock_in_at) a.days.add(r.work_date);
+      if (r.clock_in_at && r.clock_out_at) {
+        const ms = new Date(r.clock_out_at).getTime() - new Date(r.clock_in_at).getTime();
+        if (!isNaN(ms) && ms > 0) a.minutes += ms / 60000;
+      }
+      if (r.work_date === todayDate && (!a.todayRec || !r.clock_out_at)) a.todayRec = r;
+    }
+    const statusOrder: Record<string, number> = { in: 0, done: 1, off: 2 };
+    return Array.from(map.values())
+      .map((a) => {
+        const status = a.todayRec ? (a.todayRec.clock_out_at ? "done" : "in") : "off";
+        return {
+          member_id: a.member_id,
+          name: a.name,
+          store_name: a.store_name,
+          daysCount: a.days.size,
+          hoursLabel: `${Math.floor(a.minutes / 60)}時間${Math.round(a.minutes % 60)}分`,
+          status,
+          inAt: a.todayRec?.clock_in_at ?? null,
+          outAt: a.todayRec?.clock_out_at ?? null,
+        };
+      })
+      .sort((x, y) => statusOrder[x.status] - statusOrder[y.status] || x.name.localeCompare(y.name, "ja"));
+  }, [teamRecords, todayDate]);
+
+  const workingNow = teamData.filter((t) => t.status === "in").length;
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center gap-2">
@@ -191,13 +236,14 @@ export default function AttendanceView({
 
       {/* タブ */}
       <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
-        {[
+        {([
           { k: "clock", l: "打刻" },
           { k: "history", l: "履歴" },
-        ].map((t) => (
+          ...(canSeeTeam ? [{ k: "team", l: "チーム" }] : []),
+        ] as { k: "clock" | "history" | "team"; l: string }[]).map((t) => (
           <button
             key={t.k}
-            onClick={() => setTab(t.k as "clock" | "history")}
+            onClick={() => setTab(t.k)}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
               tab === t.k ? "bg-white text-sise-700 shadow-sm" : "text-slate-500"
             }`}
@@ -321,6 +367,62 @@ export default function AttendanceView({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "team" && canSeeTeam && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="glass-card p-4 text-center">
+              <p className="text-[11px] text-slate-500 mb-1">現在 勤務中</p>
+              <p className="text-2xl font-extrabold text-sise-600">
+                {workingNow}<span className="text-sm">名</span>
+              </p>
+            </div>
+            <div className="glass-card p-4 text-center">
+              <p className="text-[11px] text-slate-500 mb-1">メンバー</p>
+              <p className="text-2xl font-extrabold text-slate-800">
+                {teamData.length}<span className="text-sm">名</span>
+              </p>
+            </div>
+          </div>
+
+          {teamData.length === 0 ? (
+            <div className="glass-card p-8 text-center text-sm text-slate-400">
+              今月のチーム勤怠記録がありません。
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {teamData.map((t) => {
+                const badge =
+                  t.status === "in"
+                    ? { c: "bg-emerald-100 text-emerald-700", l: "勤務中" }
+                    : t.status === "done"
+                    ? { c: "bg-slate-100 text-slate-500", l: "退勤済" }
+                    : { c: "bg-amber-50 text-amber-600", l: "未出勤" };
+                return (
+                  <div key={t.member_id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-700">{t.name}</span>
+                        <span className={`chip ${badge.c}`}>{badge.l}</span>
+                        {t.store_name && (
+                          <span className="text-[10px] text-slate-400">{t.store_name}</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        今月 {t.daysCount}日 ・ {t.hoursLabel}
+                      </div>
+                    </div>
+                    <div className="text-xs tabular-nums text-right">
+                      <div className="text-sise-700 font-bold">出 {fmtTime(t.inAt)}</div>
+                      <div className="text-slate-500">退 {fmtTime(t.outAt)}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

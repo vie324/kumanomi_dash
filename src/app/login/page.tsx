@@ -37,10 +37,13 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sise-50 to-white px-4">
-      <div className="w-full max-w-sm glass-card p-7 animate-fade-in">
+    <main className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-gradient-to-br from-orange-50 via-white to-amber-50">
+      {/* 背景の柔らかなグラデブロブ */}
+      <div className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full bg-orange-200/40 blur-3xl animate-float" />
+      <div className="pointer-events-none absolute -bottom-28 -left-24 w-96 h-96 rounded-full bg-amber-200/30 blur-3xl" />
+      <div className="relative w-full max-w-sm glass-card p-7 animate-scale-in shadow-[0_20px_60px_-24px_rgba(15,23,42,0.35)]">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sise-500 text-white text-xl font-extrabold mb-3">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 text-white text-2xl font-extrabold mb-3 shadow-[0_10px_24px_-8px_rgba(234,88,12,0.5)] animate-float">
             く
           </div>
           <h1 className="text-lg font-extrabold text-slate-900">くまのみグループ</h1>

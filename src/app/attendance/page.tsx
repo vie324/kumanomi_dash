@@ -3,10 +3,15 @@ import { loadPageAccess } from "@/lib/admin-guard";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
-import AttendanceView from "@/components/AttendanceView";
+import AttendanceView, { type TeamRecord } from "@/components/AttendanceView";
 import type { AttendanceRecord, Member, Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+type RawTeamRow = AttendanceRecord & {
+  member?: { name: string } | null;
+  store?: { name: string } | null;
+};
 
 function todayJST(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -20,7 +25,7 @@ function todayJST(): string {
 export default async function AttendancePage() {
   const access = await loadPageAccess("attendance");
   if (!access.member) return <NoAccess />;
-  const { member } = access;
+  const { member, storeIds } = access;
 
   const supabase = createClient();
   const { data: storeRow } = await supabase
@@ -53,6 +58,25 @@ export default async function AttendancePage() {
     records.find((r) => r.work_date === today) ||
     null;
 
+  // 管理者（店長以上）はチームの勤怠を閲覧できる
+  const canSeeTeam = member.role !== "staff";
+  let teamRecords: TeamRecord[] = [];
+  if (canSeeTeam) {
+    let q = supabase
+      .from("attendance_records")
+      .select("*, member:members(name), store:stores(name)")
+      .gte("work_date", monthStart)
+      .order("work_date", { ascending: false })
+      .order("clock_in_at", { ascending: false });
+    if (storeIds) q = q.in("store_id", storeIds);
+    const { data } = await q;
+    teamRecords = ((data as RawTeamRow[]) || []).map((r) => ({
+      ...(r as AttendanceRecord),
+      member_name: r.member?.name ?? "—",
+      store_name: r.store?.name ?? "",
+    }));
+  }
+
   return (
     <>
       <AppHeader member={member} store={store} active="/attendance" />
@@ -62,6 +86,9 @@ export default async function AttendancePage() {
           store={store}
           initialRecords={records}
           initialToday={todayRecord}
+          canSeeTeam={canSeeTeam}
+          teamRecords={teamRecords}
+          today={today}
         />
       </main>
     </>

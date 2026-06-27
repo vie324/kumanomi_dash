@@ -316,6 +316,43 @@ export type AttendanceRecord = {
   updated_at: string;
 };
 
+// ============================================================
+// 姿勢分析・施術レポート（保存・履歴）
+// ============================================================
+export type PostureRecord = {
+  id: string;
+  store_id: string;
+  member_id: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  record_date: string;
+  mode: "front" | "side";
+  total_score: number | null;
+  items: { key: string; label: string; value: string; score: number; detail: string }[] | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type TreatmentReportRow = {
+  id: string;
+  store_id: string;
+  member_id: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  visit_date: string;
+  genre: string | null;
+  staff_name: string | null;
+  menus: string[] | null;
+  scores: Record<string, number> | null;
+  avg_score: number | null;
+  comment: string | null;
+  care: string[] | null;
+  care_note: string | null;
+  next_offer: string | null;
+  next_expiry: string | null;
+  created_at: string;
+};
+
 // 2点間の距離（メートル, Haversine）
 export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000;

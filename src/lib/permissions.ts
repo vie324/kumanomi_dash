@@ -59,13 +59,32 @@ export function defaultScope(role: Role): Scope {
 }
 
 // スコープのランク（広い順）。役割が要求する最小スコープを下回らせない。
-const SCOPE_RANK: Record<Scope, number> = {
+export const SCOPE_RANK: Record<Scope, number> = {
   all: 4,
   department: 3,
   assigned: 2,
   store: 1,
   own: 0,
 };
+
+// 役割のランク（強い順）: owner=4 … staff=0。権限昇格の上限判定に使う。
+const ROLE_RANK: Record<Role, number> = {
+  owner: 4,
+  dept_manager: 3,
+  manager: 2,
+  store_manager: 1,
+  staff: 0,
+};
+export function roleRank(role: Role): number {
+  return ROLE_RANK[role] ?? 0;
+}
+export function scopeRank(scope: Scope): number {
+  return SCOPE_RANK[scope] ?? 0;
+}
+// 編集者(actor)が対象に role/scope を付与してよいか（自分以上は不可）。
+export function effectiveScope(member: Pick<Member, "role" | "scope">): Scope {
+  return memberScope(member);
+}
 
 export function memberScope(member: Pick<Member, "role" | "scope">): Scope {
   const fallback = defaultScope(member.role);

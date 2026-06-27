@@ -66,6 +66,10 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 15. `supabase/migrations/0015_esthe_fields_help_store.sql` … エステ日報の追加項目(物販/継続/その他) + 契約メモ回数 + ヘルプ先計上のためRLS書き込み緩和
 16. `supabase/migrations/0016_help_store_write_guard.sql` … ヘルプ先書き込みを「同業態の有効店舗」に制限（can_write_store）
 17. `supabase/migrations/0017_scope_role_floor.sql` … スコープを役割の下限で底上げ（管理者が各店舗を見れないバグ修正）
+18. `supabase/migrations/0018_privilege_escalation_guard.sql` … 権限昇格ガード（自分以上の役割/範囲を付与不可・role_permissionsはowner限定）
+19. `supabase/migrations/0019_report_per_store.sql` … 日報の一意制約を(member,date,store)へ（ヘルプ勤務で同日2店舗の計上に対応）
+20. `supabase/migrations/0020_ticket_rpc.sql` … 回数券消化/取消を行ロックで原子化（consume_ticket/restore_ticket）
+21. `supabase/migrations/0021_posture_treatment_records.sql` … 姿勢分析・施術レポートの保存テーブル＋RLS（顧客履歴）
 18. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
 16. （任意）`supabase/seed.sql` … 成増店レコード
 
