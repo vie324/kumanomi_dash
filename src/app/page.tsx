@@ -103,12 +103,6 @@ export default async function DashboardPage({
     ? scopeStores.map((s) => s.id)
     : storeIds ?? null;
 
-  let membersQuery = supabase.from("members").select("*").eq("active", true);
-  if (ownOnly) membersQuery = membersQuery.eq("id", member.id);
-  else if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
-  const { data: membersRows } = await membersQuery;
-  const members = (membersRows as Member[]) || [];
-
   let reportsQuery = supabase
     .from("daily_reports")
     .select("*")
@@ -118,6 +112,36 @@ export default async function DashboardPage({
   else if (scopeStoreIds) reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
   const { data: reportRows } = await reportsQuery;
   const reports = (reportRows as DailyReport[]) || [];
+
+  // メンバー一覧: スコープ店舗の所属者に加え、日報に出てくる作成者（ヘルプ勤務の
+  // 他店所属メンバー）も含める。これで「メンバー別」表と合計KPIが一致する。
+  const reportMemberIds = Array.from(new Set(reports.map((r) => r.member_id)));
+  let members: Member[] = [];
+  if (ownOnly) {
+    const { data } = await supabase.from("members").select("*").eq("id", member.id);
+    members = (data as Member[]) || [];
+  } else {
+    const seen = new Set<string>();
+    const collected: Member[] = [];
+    // スコープ店舗の在籍メンバー
+    {
+      let q = supabase.from("members").select("*").eq("active", true);
+      if (scopeStoreIds) q = q.in("store_id", scopeStoreIds);
+      const { data } = await q;
+      for (const m of (data as Member[]) || []) {
+        if (!seen.has(m.id)) { seen.add(m.id); collected.push(m); }
+      }
+    }
+    // 日報の作成者で未取得の者（ヘルプ勤務など）
+    const missing = reportMemberIds.filter((id) => !seen.has(id));
+    if (missing.length > 0) {
+      const { data } = await supabase.from("members").select("*").in("id", missing);
+      for (const m of (data as Member[]) || []) {
+        if (!seen.has(m.id)) { seen.add(m.id); collected.push(m); }
+      }
+    }
+    members = collected;
+  }
 
   // 契約メモ（媒体別集計のため won/lost 両方取得）
   const reportIds = reports.map((r) => r.id);
