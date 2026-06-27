@@ -50,6 +50,23 @@ export function diffDays(a: string, b: string): number {
   return Math.round((db - da) / 86400000);
 }
 
+// "YYYY-MM" の翌月初日 "YYYY-MM-01"
+export function nextMonthStart(ym: string): string {
+  return shiftMonth(ym, 1) + "-01";
+}
+
+// "YYYY-MM" の日数（28〜31）
+export function daysInMonth(ym: string): number {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m) return 30;
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+// 今日（JST）の「月内経過日数」（=日。1〜31）
+export function dayOfMonthJST(): number {
+  return Number(todayJST().slice(8, 10));
+}
+
 // "YYYY-MM" → "2026年6月"
 export function formatMonthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);

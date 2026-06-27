@@ -2,13 +2,21 @@ import Link from "next/link";
 import { TrendingUp, UserPlus, Target, CalendarCheck, ShoppingBag, Sparkles, Repeat, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { loadPageAccess } from "@/lib/admin-guard";
-import { monthStartJST } from "@/lib/date";
+import {
+  monthJST,
+  shiftMonth,
+  nextMonthStart,
+  daysInMonth,
+  dayOfMonthJST,
+  formatMonthLabel,
+} from "@/lib/date";
 import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import DashboardCharts from "@/components/DashboardCharts";
 import StoreFilter from "@/components/StoreFilter";
 import DeptFilter from "@/components/DeptFilter";
+import PeriodFilter from "@/components/PeriodFilter";
 import KpiCard from "@/components/KpiCard";
 import { isOwnOnly } from "@/lib/permissions";
 import { type DailyReport, type Genre, type Member, type Store } from "@/lib/types";
@@ -19,10 +27,16 @@ function yen(n: number): string {
   return "¥" + Math.round(n).toLocaleString("ja-JP");
 }
 
+// 前月比（%）。前期間が0なら比較不可で null。
+function pctDelta(cur: number, prev: number): number | null {
+  if (!prev) return cur > 0 ? null : 0;
+  return ((cur - prev) / prev) * 100;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { store?: string; dept?: string };
+  searchParams: { store?: string; dept?: string; month?: string };
 }) {
   const access = await loadPageAccess("dashboard");
   if (!access.member) return <NoAccess />;
@@ -47,6 +61,16 @@ export default async function DashboardPage({
     seesAllStores && (searchParams.dept === "seitai" || searchParams.dept === "esthe")
       ? (searchParams.dept as Genre)
       : "all";
+
+  // 集計期間（月）。?month=YYYY-MM。未来月は不可、既定は今月。
+  const thisMonth = monthJST();
+  const selectedMonth =
+    searchParams.month && /^\d{4}-\d{2}$/.test(searchParams.month) && searchParams.month <= thisMonth
+      ? searchParams.month
+      : thisMonth;
+  const isCurrentMonth = selectedMonth === thisMonth;
+  const monthStart = selectedMonth + "-01";
+  const monthEnd = nextMonthStart(selectedMonth);
 
   // スタッフ（自分のみ）かどうか。自分の数値だけ表示する。
   const ownOnly = isOwnOnly(member, "daily_reports");
@@ -74,10 +98,12 @@ export default async function DashboardPage({
     ? scopeStores.map((s) => s.id)
     : storeIds ?? null;
 
+  // 選択月の日報（上限日付を入れて未来月の混入を防ぐ）
   let reportsQuery = supabase
     .from("daily_reports")
     .select("*")
-    .gte("report_date", monthStartJST())
+    .gte("report_date", monthStart)
+    .lt("report_date", monthEnd)
     .order("report_date", { ascending: true });
   if (ownOnly) reportsQuery = reportsQuery.eq("member_id", member.id);
   else if (scopeStoreIds) reportsQuery = reportsQuery.in("store_id", scopeStoreIds);
@@ -174,8 +200,9 @@ export default async function DashboardPage({
   const sumOther = reports.reduce((s, r) => s + Number(r.other_amount || 0), 0);
   // 美容業態の指標を出すか（部門=美容、または本人がエステ）
   const showEstheKpis = dept === "esthe" || (dept === "all" && member.genre === "esthe");
-  const conversion = sumNew > 0 ? (sumContract / sumNew) * 100 : 0;
-  const resvRate = sumExisting > 0 ? (sumNextResv / sumExisting) * 100 : 0;
+  // 率は 0..100 にクランプ（入力不整合で 100% 超を表示しない）
+  const conversion = sumNew > 0 ? Math.min(100, (sumContract / sumNew) * 100) : 0;
+  const resvRate = sumExisting > 0 ? Math.min(100, (sumNextResv / sumExisting) * 100) : 0;
   const monthlyTarget = store?.monthly_target_revenue || 0;
   const progress = monthlyTarget > 0 ? Math.min(100, (totalRevenue / monthlyTarget) * 100) : 0;
 
@@ -210,13 +237,70 @@ export default async function DashboardPage({
     })
     .sort((a, b) => b.revenue - a.revenue);
 
+  // 前月の合計（前月比バッジ用）
+  async function loadMonthTotals(month: string) {
+    const mStart = month + "-01";
+    const mEnd = nextMonthStart(month);
+    let q = supabase
+      .from("daily_reports")
+      .select("id, revenue, new_count")
+      .gte("report_date", mStart)
+      .lt("report_date", mEnd);
+    if (ownOnly) q = q.eq("member_id", member.id);
+    else if (scopeStoreIds) q = q.in("store_id", scopeStoreIds);
+    const { data } = await q;
+    const rows = (data as { id: string; revenue: number; new_count: number }[]) || [];
+    const revenue = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
+    const nw = rows.reduce((s, r) => s + (r.new_count || 0), 0);
+    let contract = 0;
+    const ids = rows.map((r) => r.id);
+    if (ids.length > 0) {
+      const { data: mm } = await supabase
+        .from("contract_memos")
+        .select("report_id")
+        .eq("outcome", "won")
+        .in("report_id", ids);
+      contract = (mm as unknown[] | null)?.length || 0;
+    }
+    return { revenue, new: nw, contract };
+  }
+  const prev = await loadMonthTotals(shiftMonth(selectedMonth, -1));
+  const dRevenue = pctDelta(totalRevenue, prev.revenue);
+  const dNew = pctDelta(sumNew, prev.new);
+
+  // 月末着地予測（当月のみ。経過日数からのペーシング）
+  const elapsed = isCurrentMonth ? dayOfMonthJST() : daysInMonth(selectedMonth);
+  const dim = daysInMonth(selectedMonth);
+  const projectedRevenue = elapsed > 0 ? Math.round((totalRevenue / elapsed) * dim) : totalRevenue;
+  const projectedPct = monthlyTarget > 0 ? (projectedRevenue / monthlyTarget) * 100 : 0;
+
+  // 店舗別ランキング（複数店舗が対象のとき）
+  const showStoreRanking = !ownOnly && scopeStores.length > 1;
+  const storeRanking = showStoreRanking
+    ? (() => {
+        const byStore = new Map<string, { revenue: number; new: number; contract: number }>();
+        for (const r of reports) {
+          const cur = byStore.get(r.store_id) || { revenue: 0, new: 0, contract: 0 };
+          cur.revenue += Number(r.revenue || 0);
+          cur.new += r.new_count || 0;
+          cur.contract += wonByReport.get(r.id) || 0;
+          byStore.set(r.store_id, cur);
+        }
+        return scopeStores
+          .map((s) => ({ id: s.id, name: s.name, ...(byStore.get(s.id) || { revenue: 0, new: 0, contract: 0 }) }))
+          .sort((a, b) => b.revenue - a.revenue);
+      })()
+    : [];
+
   return (
     <>
       <AppHeader member={member} store={store} active="/" />
       <main className="max-w-5xl mx-auto px-4 py-5 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">今月のダッシュボード</h1>
+            <h1 className="text-xl font-extrabold text-slate-900">
+              {isCurrentMonth ? "今月のダッシュボード" : `${formatMonthLabel(selectedMonth)}のダッシュボード`}
+            </h1>
             <p className="text-xs text-slate-500">
               {ownOnly
                 ? `${member.name} さん（自分）`
@@ -233,16 +317,17 @@ export default async function DashboardPage({
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <PeriodFilter current={selectedMonth} />
             {seesAllStores && <DeptFilter current={dept} />}
             {!ownOnly && <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />}
             <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
           </div>
         </div>
 
-        {/* KPI */}
+        {/* KPI（前月比つき） */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard index={0} label="今月売上" value={totalRevenue} format={yen} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} tone="brand" icon={<TrendingUp size={16} />} />
-          <KpiCard index={1} label="新規" value={sumNew} sub={`契約 ${sumContract} 件`} tone="blue" icon={<UserPlus size={16} />} />
+          <KpiCard index={0} label="売上" value={totalRevenue} format={yen} delta={dRevenue} sub={monthlyTarget ? `目標 ${yen(monthlyTarget)}` : undefined} tone="brand" icon={<TrendingUp size={16} />} />
+          <KpiCard index={1} label="新規" value={sumNew} delta={dNew} sub={`契約 ${sumContract} 件`} tone="blue" icon={<UserPlus size={16} />} />
           <KpiCard index={2} label="新規→契約率" value={conversion} format={(n) => n.toFixed(0)} suffix="%" tone="emerald" icon={<Target size={16} />} />
           <KpiCard index={3} label="次回予約率" value={resvRate} format={(n) => n.toFixed(0)} suffix="%" sub={`既存 ${sumExisting} 件`} tone="purple" icon={<CalendarCheck size={16} />} />
         </div>
@@ -272,6 +357,60 @@ export default async function DashboardPage({
                 ? `目標達成（+${yen(totalRevenue - monthlyTarget)}）`
                 : `目標まで ${yen(monthlyTarget - totalRevenue)}`}
             </p>
+            {/* 月末着地予測（ペーシング） */}
+            {monthlyTarget > 0 && elapsed > 0 && elapsed < dim && (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs text-slate-500">
+                  着地予測{" "}
+                  <span className="font-bold text-slate-800">{yen(projectedRevenue)}</span>
+                  <span className="text-slate-400">（{elapsed}/{dim}日 経過）</span>
+                </div>
+                <span
+                  className={`chip ${
+                    projectedPct >= 100
+                      ? "bg-emerald-100 text-emerald-700"
+                      : projectedPct >= 80
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-rose-100 text-rose-600"
+                  }`}
+                >
+                  {projectedPct >= 100 ? "達成ペース" : `目標比 ${projectedPct.toFixed(0)}%`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 店舗別ランキング */}
+        {showStoreRanking && storeRanking.length > 0 && (
+          <div className="glass-card card-hover p-5 animate-fade-in-up">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">店舗別ランキング（{formatMonthLabel(selectedMonth)}）</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                    <th className="py-2 pr-3 font-semibold">#</th>
+                    <th className="py-2 pr-3 font-semibold">店舗</th>
+                    <th className="py-2 px-2 font-semibold text-right">売上</th>
+                    <th className="py-2 px-2 font-semibold text-center">新規</th>
+                    <th className="py-2 px-2 font-semibold text-center">契約</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {storeRanking.map((s, i) => (
+                    <tr key={s.id} className="border-b border-slate-50">
+                      <td className="py-2.5 pr-3 font-bold text-slate-400 tabular-nums">{i + 1}</td>
+                      <td className="py-2.5 pr-3 font-semibold text-slate-700">
+                        {i === 0 && <span className="mr-1">🏆</span>}{s.name}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-bold text-sise-600">{yen(s.revenue)}</td>
+                      <td className="py-2.5 px-2 text-center text-blue-600 font-semibold">{s.new}</td>
+                      <td className="py-2.5 px-2 text-center text-emerald-600 font-semibold">{s.contract}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -280,7 +419,7 @@ export default async function DashboardPage({
 
         {/* メンバー別 */}
         <div className="glass-card card-hover p-5 animate-fade-in-up">
-          <h2 className="text-sm font-bold text-slate-800 mb-3">メンバー別 成績（今月）</h2>
+          <h2 className="text-sm font-bold text-slate-800 mb-3">メンバー別 成績（{formatMonthLabel(selectedMonth)}）</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -316,7 +455,7 @@ export default async function DashboardPage({
 
         {/* 媒体別 契約状況（今月） */}
         <div className="glass-card card-hover p-5 animate-fade-in-up">
-          <h2 className="text-sm font-bold text-slate-800 mb-3">媒体別 契約状況（今月）</h2>
+          <h2 className="text-sm font-bold text-slate-800 mb-3">媒体別 契約状況（{formatMonthLabel(selectedMonth)}）</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

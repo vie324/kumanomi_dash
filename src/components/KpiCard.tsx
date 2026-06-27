@@ -26,6 +26,7 @@ export default function KpiCard({
   icon,
   tone = "brand",
   index = 0,
+  delta,
 }: {
   label: string;
   value: number;
@@ -35,9 +36,13 @@ export default function KpiCard({
   icon?: ReactNode;
   tone?: Tone;
   index?: number;
+  // 前月比など。null = 比較不可（前期間0）。
+  delta?: number | null;
 }) {
   const t = TONE[tone];
   const delay = Math.min(index, 12) * 55;
+  const hasDelta = delta !== undefined;
+  const up = (delta ?? 0) >= 0;
   return (
     <div
       className="kpi-card animate-fade-in-up"
@@ -53,7 +58,18 @@ export default function KpiCard({
         <AnimatedNumber value={value} format={format} />
         {suffix && <span className="text-lg font-bold ml-0.5">{suffix}</span>}
       </p>
-      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+      <div className="flex items-center gap-1.5 mt-0.5">
+        {hasDelta && (
+          delta === null ? (
+            <span className="chip bg-slate-100 text-slate-400">前月比 —</span>
+          ) : (
+            <span className={`chip ${up ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"}`}>
+              {up ? "▲" : "▼"} {Math.abs(delta).toFixed(0)}%
+            </span>
+          )
+        )}
+        {sub && <span className="text-[11px] text-slate-400">{sub}</span>}
+      </div>
     </div>
   );
 }
