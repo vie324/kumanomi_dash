@@ -315,6 +315,8 @@ export type AttendanceRecord = {
   clock_out_lng: number | null;
   method: "gps" | "manual";
   note: string | null;
+  break_started_at: string | null; // 休憩中の開始時刻（休憩していなければ null）
+  break_minutes: number; // その日の休憩の累計（分）
   created_at: string;
   updated_at: string;
 };
