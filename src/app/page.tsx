@@ -19,7 +19,7 @@ import DeptFilter from "@/components/DeptFilter";
 import PeriodFilter from "@/components/PeriodFilter";
 import KpiCard from "@/components/KpiCard";
 import { isOwnOnly } from "@/lib/permissions";
-import { type DailyReport, type Genre, type Member, type Store } from "@/lib/types";
+import { type DailyReport, type Genre, type Member, type StaffGoal, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -160,9 +160,11 @@ export default async function DashboardPage({
   const wonMemos = memoRows.filter((m) => m.outcome === "won");
   const wonByReport = new Map<string, number>();
   const wonByMember = new Map<string, number>();
+  const wonAmountByMember = new Map<string, number>();
   for (const w of wonMemos) {
     wonByReport.set(w.report_id, (wonByReport.get(w.report_id) || 0) + 1);
     wonByMember.set(w.member_id, (wonByMember.get(w.member_id) || 0) + 1);
+    wonAmountByMember.set(w.member_id, (wonAmountByMember.get(w.member_id) || 0) + Number(w.amount || 0));
   }
 
   // 媒体別の契約あり/なし集計（金額合計も）
@@ -236,6 +238,61 @@ export default async function DashboardPage({
       };
     })
     .sort((a, b) => b.revenue - a.revenue);
+
+  // ---- 個人目標（選択月）と達成状況 ----
+  // 新規売上 = 新規契約金額 + 新規体験 + 新規物販 / 既存売上 = 継続 + 物販 + その他
+  function memberActuals(mid: string) {
+    const rs = reports.filter((r) => r.member_id === mid);
+    const sum = (f: (r: DailyReport) => number) => rs.reduce((s, r) => s + f(r), 0);
+    const wonAmt = wonAmountByMember.get(mid) || 0;
+    const newProduct = sum((r) => Number(r.new_product_sales || 0));
+    const newTrial = sum((r) => Number(r.new_trial_amount || 0));
+    const product = sum((r) => Number(r.product_sales || 0));
+    const renewal = sum((r) => Number(r.renewal_sales || 0));
+    const other = sum((r) => Number(r.other_amount || 0));
+    const nw = sum((r) => r.new_count || 0);
+    const contract = wonByMember.get(mid) || 0;
+    return {
+      newSales: wonAmt + newTrial + newProduct,
+      existingSales: renewal + product + other,
+      product: product + newProduct,
+      contractRate: nw > 0 ? Math.min(100, (contract / nw) * 100) : 0,
+    };
+  }
+
+  const goalMemberIds = members.map((m) => m.id);
+  const goalsByMember = new Map<string, StaffGoal>();
+  if (goalMemberIds.length > 0) {
+    const { data: goalRows } = await supabase
+      .from("staff_goals")
+      .select("*")
+      .eq("month", selectedMonth)
+      .in("member_id", goalMemberIds);
+    for (const g of (goalRows as StaffGoal[]) || []) {
+      // 同一メンバーが複数店舗の目標を持つ場合は対象店舗（スコープ内）のものを優先
+      if (!scopeStoreIds || scopeStoreIds.includes(g.store_id) || !goalsByMember.has(g.member_id)) {
+        goalsByMember.set(g.member_id, g);
+      }
+    }
+  }
+
+  // 進捗カード用（4指標）。pct は 0..100 にクランプ。
+  const pct = (actual: number, target: number) =>
+    target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : null;
+  function goalProgressFor(mid: string) {
+    const g = goalsByMember.get(mid);
+    if (!g) return null;
+    const a = memberActuals(mid);
+    return [
+      { key: "newSales", label: "新規売上", actual: a.newSales, target: Number(g.new_sales_target || 0), fmt: "yen" as const },
+      { key: "contractRate", label: "新規契約率", actual: Math.round(a.contractRate), target: Number(g.new_contract_rate_target || 0), fmt: "pct" as const },
+      { key: "product", label: "物販", actual: a.product, target: Number(g.product_target || 0), fmt: "yen" as const },
+      { key: "existingSales", label: "既存売上", actual: a.existingSales, target: Number(g.existing_sales_target || 0), fmt: "yen" as const },
+    ];
+  }
+
+  // ログイン中メンバー本人の進捗（個人）
+  const personalProgress = goalProgressFor(member.id);
 
   // 前月の合計（前月比バッジ用）
   async function loadMonthTotals(month: string) {
@@ -381,6 +438,48 @@ export default async function DashboardPage({
           </div>
         )}
 
+        {/* 個人目標 進捗（本人の目標が設定されているとき） */}
+        {personalProgress && (
+          <div className="glass-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-slate-800">
+                個人目標 進捗（{member.name} さん）
+              </h2>
+              <span className="text-[11px] text-slate-400">{formatMonthLabel(selectedMonth)}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              {personalProgress.map((p) => {
+                const ratio = pct(p.actual, p.target);
+                const actualLabel = p.fmt === "yen" ? yen(p.actual) : `${p.actual}%`;
+                const targetLabel =
+                  p.target > 0 ? (p.fmt === "yen" ? yen(p.target) : `${p.target}%`) : "未設定";
+                return (
+                  <div key={p.key}>
+                    <div className="flex items-baseline justify-between mb-1">
+                      <span className="text-xs font-semibold text-slate-600">{p.label}</span>
+                      <span className="text-xs text-slate-500">
+                        <span className="font-bold text-slate-800">{actualLabel}</span>
+                        <span className="text-slate-400"> / {targetLabel}</span>
+                        {ratio != null && (
+                          <span className={`ml-1.5 font-bold ${ratio >= 100 ? "text-emerald-600" : "text-sise-600"}`}>
+                            {ratio}%
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${ratio != null && ratio >= 100 ? "bg-emerald-500" : "bg-gradient-to-r from-sise-400 to-sise-600"}`}
+                        style={{ width: `${ratio ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 店舗別ランキング */}
         {showStoreRanking && storeRanking.length > 0 && (
           <div className="glass-card card-hover p-5 animate-fade-in-up">
@@ -452,6 +551,52 @@ export default async function DashboardPage({
             </table>
           </div>
         </div>
+
+        {/* スタッフ別 目標進捗（責任者向け） */}
+        {!ownOnly && members.some((m) => goalsByMember.has(m.id)) && (
+          <div className="glass-card card-hover p-5 animate-fade-in-up">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">スタッフ別 目標進捗（{formatMonthLabel(selectedMonth)}）</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                    <th className="py-2 pr-3 font-semibold">スタッフ</th>
+                    <th className="py-2 px-2 font-semibold text-right">新規売上</th>
+                    <th className="py-2 px-2 font-semibold text-right">新規契約率</th>
+                    <th className="py-2 px-2 font-semibold text-right">物販</th>
+                    <th className="py-2 px-2 font-semibold text-right">既存売上</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members
+                    .filter((m) => goalsByMember.has(m.id))
+                    .map((m) => {
+                      const prog = goalProgressFor(m.id)!;
+                      return (
+                        <tr key={m.id} className="border-b border-slate-50">
+                          <td className="py-2.5 pr-3 font-semibold text-slate-700">{m.name}</td>
+                          {prog.map((p) => {
+                            const ratio = pct(p.actual, p.target);
+                            const actualLabel = p.fmt === "yen" ? yen(p.actual) : `${p.actual}%`;
+                            return (
+                              <td key={p.key} className="py-2.5 px-2 text-right">
+                                <div className="font-semibold text-slate-700 tabular-nums">{actualLabel}</div>
+                                {ratio != null ? (
+                                  <div className={`text-[11px] font-bold ${ratio >= 100 ? "text-emerald-600" : "text-sise-600"}`}>{ratio}%</div>
+                                ) : (
+                                  <div className="text-[11px] text-slate-300">目標未設定</div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* 媒体別 契約状況（今月） */}
         <div className="glass-card card-hover p-5 animate-fade-in-up">

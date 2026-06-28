@@ -99,10 +99,26 @@ export function buildUserPrompt(
   今月の累計: 新規 ${context.mtdNew}人 / 契約 ${context.mtdContract}件\n`
     : "";
 
+  const estheSales =
+    Number(report.product_sales || 0) +
+      Number(report.new_product_sales || 0) +
+      Number(report.renewal_sales || 0) +
+      Number(report.new_trial_amount || 0) +
+      Number(report.other_amount || 0) >
+    0
+      ? `\n  内訳: 物販 ${Number(report.product_sales || 0).toLocaleString()}円 / 新規物販 ${Number(
+          report.new_product_sales || 0
+        ).toLocaleString()}円 / 継続売上 ${Number(report.renewal_sales || 0).toLocaleString()}円 / 新規体験 ${Number(
+          report.new_trial_amount || 0
+        ).toLocaleString()}円 / その他 ${Number(report.other_amount || 0).toLocaleString()}円\n  継続契約: ${
+          report.renewal_contracts || 0
+        }件`
+      : "";
+
   return `【日報】${report.report_date}  担当: ${memberName}（${store?.name || report.store_id}）
 
 ■ 売上
-  本日売上: ${Number(report.revenue).toLocaleString()}円
+  本日売上: ${Number(report.revenue).toLocaleString()}円${estheSales}
 ${target}
 
 ■ 既存（リピート）
@@ -141,7 +157,9 @@ export async function generateFeedback(args: {
 
   const msg = await anthropic.messages.create({
     model,
-    max_tokens: 1500,
+    // 1500 では途中で切れて JSON が壊れ、生のJSON断片が総評に混入することがあった。
+    // 余裕を持たせて最後まで生成させる。
+    max_tokens: 4000,
     system: SYSTEM_PROMPT,
     messages: [
       {
@@ -161,23 +179,225 @@ export async function generateFeedback(args: {
   return { result, model, raw: msg };
 }
 
-export function parseFeedback(text: string): FeedbackResult {
-  let jsonText = text;
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) jsonText = fence[1];
-  const start = jsonText.indexOf("{");
-  const end = jsonText.lastIndexOf("}");
-  if (start !== -1 && end !== -1) jsonText = jsonText.slice(start, end + 1);
-
-  try {
-    const obj = JSON.parse(jsonText);
-    return {
-      summary: String(obj.summary || ""),
-      issues: String(obj.issues || ""),
-      advice: String(obj.advice || ""),
-      encouragement: String(obj.encouragement || ""),
-    };
-  } catch {
-    return { summary: text.slice(0, 800), issues: "", advice: "", encouragement: "" };
+// JSON 文字列から指定キーの文字列値を寛容に取り出す。
+// 末尾が切れて閉じ引用符が無い（トークン上限で途中終了）場合でも、
+// そこまでの本文をそのまま返す（生のJSON記号は混入させない）。
+function extractJsonString(src: string, key: string): string {
+  const keyIdx = src.indexOf(`"${key}"`);
+  if (keyIdx === -1) return "";
+  let i = src.indexOf(":", keyIdx);
+  if (i === -1) return "";
+  i++;
+  while (i < src.length && /\s/.test(src[i])) i++;
+  if (src[i] !== '"') return "";
+  i++;
+  let out = "";
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "\\") {
+      const n = src[i + 1];
+      out += n === "n" ? "\n" : n === "t" ? "\t" : n ?? "";
+      i += 2;
+      continue;
+    }
+    if (c === '"') break; // 閉じ引用符
+    out += c;
+    i++;
   }
+  return out.trim();
+}
+
+// JSON にできなかったテキストから装飾（コードフェンス・キー名）を除去し、
+// 読める本文だけを残す（"```json"・'{ "summary": ' などを表に出さない）。
+function stripJsonArtifacts(text: string): string {
+  return text
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .replace(/^\s*\{/, "")
+    .replace(/\}\s*$/, "")
+    .replace(/"(summary|issues|advice|encouragement)"\s*:\s*"?/gi, "")
+    .replace(/"\s*,\s*$/g, "")
+    .replace(/"\s*$/g, "")
+    .trim();
+}
+
+// ============================================================
+// 店舗責任者向け スタッフ指導コーチング（月次）
+// ============================================================
+export type CoachingResult = {
+  strengths: string;
+  issues: string;
+  coaching: string;
+};
+
+export type CoachingStats = {
+  monthLabel: string;
+  reportCount: number;
+  revenue: number;
+  newCount: number;
+  contract: number;
+  contractRate: number; // %
+  existingTreatments: number;
+  nextReservations: number;
+  reservationRate: number; // %
+  secondVisit: number;
+  secondVisitRate: number; // %
+  productSales: number;
+  renewalSales: number;
+  newTrialAmount: number;
+  // 目標（任意）
+  newSalesTarget?: number;
+  newSalesActual?: number;
+  contractRateTarget?: number;
+  productTarget?: number;
+  productActual?: number;
+  existingSalesTarget?: number;
+  existingSalesActual?: number;
+  // 定性材料
+  wonReasons: string[];
+  lostReasons: string[];
+  reflections: string[];
+};
+
+const COACHING_SYSTEM_PROMPT = `あなたは整体・エステ店舗グループの人材育成を支援する、経験豊富なエリアマネージャーです。
+店舗責任者（店長）が対象スタッフを指導・教育するための材料を、日本語でまとめます。
+対象スタッフ本人ではなく「店舗責任者に向けた」コーチング資料である点に注意してください。
+
+重視する観点:
+- 1ヶ月の成績（売上・新規・契約率・次回予約率・2回目予約転換率・物販・継続）と目標達成状況を踏まえる。
+- 契約が取れた理由／取れなかった理由、本人の振り返りから、行動の傾向・強み・課題を読み取る。
+- 「店舗責任者が次の1on1や日々の声かけで何を伝え、どう関わるべきか」を具体的な指導アクションに落とす。
+- 精神論ではなく、再現可能な行動・スクリプト・練習方法を提案する。
+
+出力は必ず次のJSON形式のみ（前後に説明文やマークダウンの\`\`\`は付けない）:
+{
+  "strengths": "このスタッフの強み・伸ばすべき点（箇条書き可）",
+  "issues": "課題・つまずいている点の分析（箇条書き可、具体的に）",
+  "coaching": "店舗責任者への指導アドバイス（箇条書き、3〜6個、1on1や日々の声かけで使える粒度で）"
+}`;
+
+function pctLine(label: string, actual?: number, target?: number, unit = "円"): string {
+  if (target == null || target <= 0) return "";
+  const a = actual ?? 0;
+  const r = Math.round((a / target) * 100);
+  return `\n  ${label}: ${a.toLocaleString()}${unit} / 目標 ${target.toLocaleString()}${unit}（達成率 ${r}%）`;
+}
+
+export function buildCoachingPrompt(memberName: string, store: Store | null, s: CoachingStats): string {
+  const list = (arr: string[], max = 8) =>
+    arr.filter((x) => x && x.trim()).slice(0, max).map((x) => `  ・${x.trim()}`).join("\n") || "  （記録なし）";
+
+  return `【対象スタッフ】${memberName}（${store?.name || ""}）  対象月: ${s.monthLabel}
+
+■ 成績（月間合計・日報 ${s.reportCount}件）
+  売上: ${s.revenue.toLocaleString()}円
+  新規: ${s.newCount}人 / 契約: ${s.contract}件（新規→契約率 ${s.contractRate}%）
+  既存施術: ${s.existingTreatments}件 / 次回予約: ${s.nextReservations}件（次回予約率 ${s.reservationRate}%）
+  2回目予約: ${s.secondVisit}人（転換率 ${s.secondVisitRate}%）
+  物販: ${s.productSales.toLocaleString()}円 / 継続売上: ${s.renewalSales.toLocaleString()}円 / 新規体験: ${s.newTrialAmount.toLocaleString()}円
+
+■ 目標達成状況${pctLine("新規売上", s.newSalesActual, s.newSalesTarget)}${
+    s.contractRateTarget && s.contractRateTarget > 0
+      ? `\n  新規契約率: ${s.contractRate}% / 目標 ${s.contractRateTarget}%`
+      : ""
+  }${pctLine("物販", s.productActual, s.productTarget)}${pctLine("既存売上", s.existingSalesActual, s.existingSalesTarget)}
+
+■ 契約できた理由（決め手）
+${list(s.wonReasons)}
+
+■ 契約に至らなかった理由
+${list(s.lostReasons)}
+
+■ 本人の振り返り（抜粋）
+${list(s.reflections)}
+
+以上をもとに、店舗責任者がこのスタッフを指導するための強み・課題・指導アドバイスを、システムプロンプトのJSON形式でまとめてください。`;
+}
+
+export async function generateStaffCoaching(args: {
+  memberName: string;
+  store: Store | null;
+  stats: CoachingStats;
+}): Promise<{ result: CoachingResult; model: string; raw: unknown }> {
+  const anthropic = new Anthropic();
+  const model = DEFAULT_MODEL;
+  const msg = await anthropic.messages.create({
+    model,
+    max_tokens: 4000,
+    system: COACHING_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: buildCoachingPrompt(args.memberName, args.store, args.stats) }],
+  });
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  const f = parseFeedback(text); // 同じ寛容パーサで summary/issues/advice を流用
+  const result: CoachingResult = {
+    strengths: extractCoachingField(text, "strengths") || f.summary,
+    issues: extractCoachingField(text, "issues") || f.issues,
+    coaching: extractCoachingField(text, "coaching") || f.advice,
+  };
+  return { result, model, raw: msg };
+}
+
+// coaching 用キー抽出（parseFeedback と同じ寛容ロジックを公開キー向けに）
+function extractCoachingField(text: string, key: string): string {
+  let jsonText = text.trim();
+  const fence = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) jsonText = fence[1].trim();
+  const start = jsonText.indexOf("{");
+  if (start !== -1) jsonText = jsonText.slice(start);
+  try {
+    const o = JSON.parse(jsonText.slice(0, jsonText.lastIndexOf("}") + 1));
+    if (o && typeof o === "object" && o[key] != null) return String(o[key]);
+  } catch {
+    /* fall through to lenient */
+  }
+  return extractJsonString(jsonText, key);
+}
+
+export function parseFeedback(text: string): FeedbackResult {
+  // コードフェンス・前後の説明文を除去し、最初の { 以降だけを対象にする。
+  let jsonText = text.trim();
+  const fence = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) jsonText = fence[1].trim();
+  const start = jsonText.indexOf("{");
+  if (start !== -1) jsonText = jsonText.slice(start);
+  const end = jsonText.lastIndexOf("}");
+  const balanced = end > 0 ? jsonText.slice(0, end + 1) : jsonText;
+
+  const tryParse = (s: string): Record<string, unknown> | null => {
+    try {
+      const o = JSON.parse(s);
+      return o && typeof o === "object" ? (o as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) 厳密パース（完全なJSONのとき）
+  const obj = tryParse(balanced) ?? tryParse(jsonText);
+  if (obj) {
+    return {
+      summary: String(obj.summary ?? ""),
+      issues: String(obj.issues ?? ""),
+      advice: String(obj.advice ?? ""),
+      encouragement: String(obj.encouragement ?? ""),
+    };
+  }
+
+  // 2) 途中で切れた等でパース不可 → キーごとに寛容抽出
+  const lenient = {
+    summary: extractJsonString(jsonText, "summary"),
+    issues: extractJsonString(jsonText, "issues"),
+    advice: extractJsonString(jsonText, "advice"),
+    encouragement: extractJsonString(jsonText, "encouragement"),
+  };
+  if (lenient.summary || lenient.issues || lenient.advice || lenient.encouragement) {
+    return lenient;
+  }
+
+  // 3) 最後の手段: JSON記号を取り除いた本文を総評として表示（生のJSONは出さない）
+  return { summary: stripJsonArtifacts(text).slice(0, 1500), issues: "", advice: "", encouragement: "" };
 }

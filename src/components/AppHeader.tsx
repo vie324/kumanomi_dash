@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GENRE_BRAND, type Member, type Store } from "@/lib/types";
 import { getPermissionMatrix } from "@/lib/auth";
-import { can, canEdit, type Resource } from "@/lib/permissions";
+import { can, canEdit, roleRank, type Resource } from "@/lib/permissions";
 import BrandLogo from "./BrandLogo";
 import ThemeApplier from "./ThemeApplier";
 import MobileNav from "./MobileNav";
@@ -50,7 +50,16 @@ export default async function AppHeader({
     if (n.genreHide && n.genreHide === member.genre) return false;
     return n.needEdit ? canEdit(matrix, member, n.resource) : can(matrix, member, n.resource, "view");
   });
-  const nav = admin ? [...visibleNav, { href: "/admin/members", label: "権限管理" }] : visibleNav;
+  // 店長以上の責任者向け: 目標設定・スタッフ指導
+  const isManagerLevel = roleRank(member.role) >= roleRank("store_manager");
+  const canGoals = isManagerLevel && canEdit(matrix, member, "daily_reports");
+  const canCoaching = isManagerLevel && can(matrix, member, "staff_admin", "view");
+  const nav = [
+    ...visibleNav,
+    ...(canGoals ? [{ href: "/admin/goals", label: "目標設定" }] : []),
+    ...(canCoaching ? [{ href: "/coaching", label: "スタッフ指導" }] : []),
+    ...(admin ? [{ href: "/admin/members", label: "権限管理" }] : []),
+  ];
   // genre が NULL/想定外でも落ちないよう既定（整体）にフォールバック
   const brand = GENRE_BRAND[member.genre] ?? GENRE_BRAND.seitai;
   return (

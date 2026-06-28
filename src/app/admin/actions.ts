@@ -414,3 +414,77 @@ export async function deleteMenuPlan(id: string) {
   revalidatePath("/admin/menu");
   revalidatePath("/menu");
 }
+
+// ------------------------------------------------------------
+// 目標設定（スタッフ個人目標 / 店舗の月間目標）。店長(store_manager)以上。
+// ------------------------------------------------------------
+async function assertGoalsManager() {
+  const member = await getCurrentMember();
+  if (!member) throw new Error("unauthorized");
+  const matrix = await getPermissionMatrix();
+  // 日報の編集権限があり、かつ店長以上の役割であること
+  if (!can(matrix, member, "daily_reports", "edit") || roleRank(member.role) < roleRank("store_manager")) {
+    throw new Error("forbidden");
+  }
+  return member;
+}
+
+const num = (v: number) => Math.max(0, Math.round(Number(v) || 0));
+
+// スタッフ個人の月間目標（店舗×月）を設定
+export async function setStaffGoal(args: {
+  memberId: string;
+  storeId: string;
+  month: string; // 'YYYY-MM'
+  newSalesTarget: number;
+  newContractRateTarget: number;
+  productTarget: number;
+  existingSalesTarget: number;
+}) {
+  const actor = await assertGoalsManager();
+  if (!/^\d{4}-\d{2}$/.test(args.month)) throw new Error("月の形式が不正です");
+  await assertCanManageStore(actor, args.storeId);
+  const admin = createAdminClient();
+  const { error } = await admin.from("staff_goals").upsert(
+    {
+      member_id: args.memberId,
+      store_id: args.storeId,
+      month: args.month,
+      new_sales_target: num(args.newSalesTarget),
+      new_contract_rate_target: Math.min(100, num(args.newContractRateTarget)),
+      product_target: num(args.productTarget),
+      existing_sales_target: num(args.existingSalesTarget),
+    },
+    { onConflict: "member_id,store_id,month" }
+  );
+  if (error) throw new Error(error.message);
+  await logAudit(actor, "staff_goal.set", "staff_goal", args.memberId, { storeId: args.storeId, month: args.month });
+  revalidatePath("/admin/goals");
+  revalidatePath("/");
+}
+
+// 店舗の月間目標（売上・1日新規・1日契約）を設定
+export async function setStoreTargets(args: {
+  storeId: string;
+  monthlyTargetRevenue: number;
+  dailyTargetNew: number;
+  dailyTargetContract: number;
+}) {
+  const actor = await assertGoalsManager();
+  await assertCanManageStore(actor, args.storeId);
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("stores")
+    .update({
+      monthly_target_revenue: num(args.monthlyTargetRevenue),
+      daily_target_new: num(args.dailyTargetNew),
+      daily_target_contract: num(args.dailyTargetContract),
+    })
+    .eq("id", args.storeId);
+  if (error) throw new Error(error.message);
+  await logAudit(actor, "store.targets_set", "store", args.storeId, {
+    monthlyTargetRevenue: num(args.monthlyTargetRevenue),
+  });
+  revalidatePath("/admin/goals");
+  revalidatePath("/");
+}

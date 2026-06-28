@@ -72,7 +72,9 @@ Supabase Dashboard → **SQL Editor** で以下を順に実行します。
 21. `supabase/migrations/0021_posture_treatment_records.sql` … 姿勢分析・施術レポートの保存テーブル＋RLS（顧客履歴）
 22. `supabase/migrations/0022_rls_member_identity.sql` … RLS本人性ハードニング（日報/契約メモ/勤怠の書込で member_id を書き手に固定、他人名義はmanage限定）
 23. `supabase/migrations/0023_audit_log.sql` … 操作監査ログ(audit_log)テーブル＋RLS（閲覧はstaff_admin manage、記録はサーバー経由）
-18. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
+24. `supabase/migrations/0024_attendance_breaks.sql` … 勤怠に休憩（break）対応
+25. `supabase/migrations/0025_goals_report_fields_coaching.sql` … 日報に継続売上/新規体験金額 + スタッフ個人目標(staff_goals) + 店舗責任者向けAIコーチング(staff_coaching) + RLS
+26. `supabase/seed_menu.sql` … エステ料金表データ（回数券/サブスク/脱毛/大宮/銀座/越谷）
 16. （任意）`supabase/seed.sql` … 成増店レコード
 
 ### 4. メンバー（5名）の作成
@@ -135,6 +137,8 @@ npm run dev
 | `/admin/roles` | 権限管理：役割×機能の権限マトリクス編集（なし/閲覧/編集/管理） |
 | `/admin/media` | 媒体（集客チャネル）設定：日報の契約メモで選べる媒体の追加/有効無効/削除 |
 | `/admin/menu` | 料金表の編集：金額・回数・区分の編集/追加/削除（org_admin=編集 のみ） |
+| `/admin/goals` | 目標設定：店舗の月間目標と、スタッフ個人目標（新規売上/新規契約率/物販/既存売上）を 店舗×月 で設定（店長以上） |
+| `/coaching` | スタッフ指導：スタッフごとの月間成績から、強み・課題・店舗責任者向け指導アドバイスをAIが生成（店長以上） |
 
 > ## 権限管理（RBAC）について
 >

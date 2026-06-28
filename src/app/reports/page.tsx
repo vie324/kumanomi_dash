@@ -6,7 +6,8 @@ import AppHeader from "@/components/AppHeader";
 import NoAccess from "@/components/NoAccess";
 import PermissionDenied from "@/components/PermissionDenied";
 import StoreFilter from "@/components/StoreFilter";
-import { type DailyReport, type Member, type Store } from "@/lib/types";
+import DeptFilter from "@/components/DeptFilter";
+import { type DailyReport, type Genre, type Member, type Store } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ function yen(n: number): string {
 export default async function ReportsListPage({
   searchParams,
 }: {
-  searchParams: { store?: string };
+  searchParams: { store?: string; dept?: string };
 }) {
   const access = await loadPageAccess("daily_reports");
   if (!access.member) return <NoAccess />;
@@ -34,11 +35,20 @@ export default async function ReportsListPage({
   // スタッフは自分の日報のみ。それ以外はスコープ内の店舗。
   const ownOnly = isOwnOnly(member, "daily_reports");
 
-  // スコープ内の店舗一覧（店舗フィルタ用）
+  // 全社が見えるか（owner 等）→ 部門(全体/整骨/美容)切替を出す
+  const seesAllStores = storeIds === null;
+  // ?dept= による業態フィルタ（全社が見えるユーザーのみ有効）
+  const dept: "all" | Genre =
+    seesAllStores && (searchParams.dept === "seitai" || searchParams.dept === "esthe")
+      ? (searchParams.dept as Genre)
+      : "all";
+
+  // スコープ内の店舗一覧（店舗フィルタ用）。部門選択時は業態で絞る。
   let scopeStores: Store[] = [];
   if (!ownOnly) {
     let q = supabase.from("stores").select("*").eq("active", true).order("name", { ascending: true });
     if (storeIds) q = q.in("id", storeIds);
+    if (dept !== "all") q = q.eq("genre", dept);
     const { data } = await q;
     scopeStores = (data as Store[]) || [];
   }
@@ -46,7 +56,12 @@ export default async function ReportsListPage({
     searchParams.store && scopeStores.some((s) => s.id === searchParams.store)
       ? searchParams.store
       : null;
-  const scopeStoreIds = selectedStore ? [selectedStore] : storeIds ?? null;
+  // 対象店舗ID: 店舗選択 > 部門の店舗群 > スコープ全店
+  const scopeStoreIds = selectedStore
+    ? [selectedStore]
+    : dept !== "all"
+    ? scopeStores.map((s) => s.id)
+    : storeIds ?? null;
 
   let membersQuery = supabase.from("members").select("*");
   if (scopeStoreIds) membersQuery = membersQuery.in("store_id", scopeStoreIds);
@@ -91,7 +106,8 @@ export default async function ReportsListPage({
       <main className="max-w-5xl mx-auto px-4 py-5 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-extrabold text-slate-900">日報一覧</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {seesAllStores && <DeptFilter current={dept} />}
             {!ownOnly && <StoreFilter stores={scopeStores} current={selectedStore ?? "all"} />}
             <Link href="/reports/new" className="btn-primary !py-2">日報入力</Link>
           </div>
