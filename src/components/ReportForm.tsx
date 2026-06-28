@@ -368,7 +368,12 @@ export default function ReportForm({
           // menu_plan_id（UI）はグループキー。保存時は実在する plan(UUID) に解決。
           // グループが解決できない場合（プラン無効化/別店舗スコープ等）は、
           // 既存の menu_label を温存し、リンク/名称を消さない。
-          const grp = isEsthe && m.menu_plan_id ? groupById.get(m.menu_plan_id) : undefined;
+          // ヴァンヴェールはメニュー選択を使わずコース内容を手入力するため、
+          // （媒体切替で残った）menu_plan_id を無視して menu_label を優先する。
+          const grp =
+            isEsthe && m.menu_plan_id && !isVembertChannel(m.channel)
+              ? groupById.get(m.menu_plan_id)
+              : undefined;
           const resolvedPlan = grp
             ? grp.plans.find((p) => p.sessions === sess) ?? grp.plans[0]
             : undefined;
