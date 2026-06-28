@@ -6,6 +6,7 @@ import { todayJST } from "@/lib/date";
 import {
   SUBSCRIPTION_PLANS,
   TICKET_PLANS,
+  isVembertChannel,
   type ContractType,
   type MediaChannel,
   type Member,
@@ -91,11 +92,14 @@ export default function ReportForm({
   const [reportDate, setReportDate] = useState(todayJST());
   // 勤務店舗（既定=自店。ヘルプ日は別店舗を選択しその店に計上）
   const [workStoreId, setWorkStoreId] = useState(member.store_id);
+  // 個人売上。エステは各売上項目から自動計算（手入力不可）、整体は手入力。
   const [revenue, setRevenue] = useState(0);
   // エステ追加項目
   const [productSales, setProductSales] = useState(0);
   const [newProductSales, setNewProductSales] = useState(0);
   const [renewalContracts, setRenewalContracts] = useState(0);
+  const [renewalSales, setRenewalSales] = useState(0);
+  const [newTrialAmount, setNewTrialAmount] = useState(0);
   const [otherAmount, setOtherAmount] = useState(0);
   const [otherNote, setOtherNote] = useState("");
   const [existingTreatments, setExistingTreatments] = useState(0);
@@ -127,6 +131,8 @@ export default function ReportForm({
     productSales: number;
     newProductSales: number;
     renewalContracts: number;
+    renewalSales: number;
+    newTrialAmount: number;
     otherAmount: number;
     otherNote: string;
     existingTreatments: number;
@@ -143,6 +149,8 @@ export default function ReportForm({
     setProductSales(d.productSales || 0);
     setNewProductSales(d.newProductSales || 0);
     setRenewalContracts(d.renewalContracts || 0);
+    setRenewalSales(d.renewalSales || 0);
+    setNewTrialAmount(d.newTrialAmount || 0);
     setOtherAmount(d.otherAmount || 0);
     setOtherNote(d.otherNote || "");
     setExistingTreatments(d.existingTreatments || 0);
@@ -161,6 +169,8 @@ export default function ReportForm({
     setProductSales(0);
     setNewProductSales(0);
     setRenewalContracts(0);
+    setRenewalSales(0);
+    setNewTrialAmount(0);
     setOtherAmount(0);
     setOtherNote("");
     setExistingTreatments(0);
@@ -203,6 +213,8 @@ export default function ReportForm({
         setProductSales(Number(report.product_sales) || 0);
         setNewProductSales(Number(report.new_product_sales) || 0);
         setRenewalContracts(report.renewal_contracts || 0);
+        setRenewalSales(Number(report.renewal_sales) || 0);
+        setNewTrialAmount(Number(report.new_trial_amount) || 0);
         setOtherAmount(Number(report.other_amount) || 0);
         setOtherNote(report.other_note || "");
         setExistingTreatments(report.existing_treatments || 0);
@@ -275,8 +287,9 @@ export default function ReportForm({
   useEffect(() => {
     if (loading || loadFailed || typeof window === "undefined") return;
     const draft: Draft = {
-      revenue, productSales, newProductSales, renewalContracts, otherAmount, otherNote,
-      existingTreatments, nextReservations, newCount, secondVisit, reflection, tomorrowAction, memos,
+      revenue, productSales, newProductSales, renewalContracts, renewalSales, newTrialAmount,
+      otherAmount, otherNote, existingTreatments, nextReservations, newCount, secondVisit,
+      reflection, tomorrowAction, memos,
     };
     try {
       localStorage.setItem(draftKeyFor(workStoreId, reportDate), JSON.stringify(draft));
@@ -284,9 +297,9 @@ export default function ReportForm({
       /* 容量超過等は無視 */
     }
   }, [
-    loading, loadFailed, revenue, productSales, newProductSales, renewalContracts, otherAmount,
-    otherNote, existingTreatments, nextReservations, newCount, secondVisit, reflection,
-    tomorrowAction, memos, workStoreId, reportDate, draftKeyFor,
+    loading, loadFailed, revenue, productSales, newProductSales, renewalContracts, renewalSales,
+    newTrialAmount, otherAmount, otherNote, existingTreatments, nextReservations, newCount,
+    secondVisit, reflection, tomorrowAction, memos, workStoreId, reportDate, draftKeyFor,
   ]);
 
   const updateMemo = (i: number, patch: Partial<MemoDraft>) =>
@@ -298,6 +311,16 @@ export default function ReportForm({
     updateMemo(i, { contract_type: t, contract_plan: firstPlan });
   }
 
+  // 個人売上の自動計算（エステ）。契約金額（新規契約の合計）＋各売上項目。
+  // ※ 整体は金額の内訳が無いため従来どおり手入力（revenue）。
+  const contractAmountTotal = memos
+    .filter((m) => m.outcome === "won")
+    .reduce((s, m) => s + (m.amount ? Math.max(0, parseInt(m.amount, 10) || 0) : 0), 0);
+  const estheRevenue =
+    contractAmountTotal + productSales + newProductSales + renewalSales + newTrialAmount + otherAmount;
+  // 保存・集計に使う売上。エステは自動計算、整体は手入力。
+  const effectiveRevenue = isEsthe ? estheRevenue : revenue;
+
   async function handleSave(generateAi: boolean) {
     setSaving(true);
     setError(null);
@@ -308,7 +331,7 @@ export default function ReportForm({
         store_id: workStoreId,
         member_id: member.id,
         report_date: reportDate,
-        revenue,
+        revenue: effectiveRevenue,
         existing_treatments: existingTreatments,
         next_reservations: nextReservations,
         new_count: newCount,
@@ -319,6 +342,8 @@ export default function ReportForm({
         product_sales: isEsthe ? productSales : 0,
         new_product_sales: isEsthe ? newProductSales : 0,
         renewal_contracts: isEsthe ? renewalContracts : 0,
+        renewal_sales: isEsthe ? renewalSales : 0,
+        new_trial_amount: isEsthe ? newTrialAmount : 0,
         other_amount: isEsthe ? otherAmount : 0,
         other_note: isEsthe ? otherNote || null : null,
       };
@@ -343,7 +368,12 @@ export default function ReportForm({
           // menu_plan_id（UI）はグループキー。保存時は実在する plan(UUID) に解決。
           // グループが解決できない場合（プラン無効化/別店舗スコープ等）は、
           // 既存の menu_label を温存し、リンク/名称を消さない。
-          const grp = isEsthe && m.menu_plan_id ? groupById.get(m.menu_plan_id) : undefined;
+          // ヴァンヴェールはメニュー選択を使わずコース内容を手入力するため、
+          // （媒体切替で残った）menu_plan_id を無視して menu_label を優先する。
+          const grp =
+            isEsthe && m.menu_plan_id && !isVembertChannel(m.channel)
+              ? groupById.get(m.menu_plan_id)
+              : undefined;
           const resolvedPlan = grp
             ? grp.plans.find((p) => p.sessions === sess) ?? grp.plans[0]
             : undefined;
@@ -522,19 +552,33 @@ export default function ReportForm({
               </select>
             </label>
           )}
-          <label className="block flex-1 min-w-[160px]">
-            <span className="field-label">個人売上（円）</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              className="field-input"
-              value={revenue === 0 ? "" : revenue}
-              placeholder="0"
-              onChange={(e) => setRevenue(Math.max(0, Number(e.target.value) || 0))}
-            />
-          </label>
+          {isEsthe ? (
+            <div className="block flex-1 min-w-[160px]">
+              <span className="field-label">個人売上 合計（自動計算）</span>
+              <div className="field-input bg-slate-50/80 font-extrabold text-slate-900 tabular-nums">
+                ¥{effectiveRevenue.toLocaleString("ja-JP")}
+              </div>
+            </div>
+          ) : (
+            <label className="block flex-1 min-w-[160px]">
+              <span className="field-label">個人売上（円）</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                className="field-input"
+                value={revenue === 0 ? "" : revenue}
+                placeholder="0"
+                onChange={(e) => setRevenue(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </label>
+          )}
         </div>
+        {isEsthe && (
+          <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">
+            内訳: 新規契約 ¥{contractAmountTotal.toLocaleString("ja-JP")} ＋ 物販 ¥{productSales.toLocaleString("ja-JP")} ＋ 新規物販 ¥{newProductSales.toLocaleString("ja-JP")} ＋ 継続 ¥{renewalSales.toLocaleString("ja-JP")} ＋ 体験 ¥{newTrialAmount.toLocaleString("ja-JP")} ＋ その他 ¥{otherAmount.toLocaleString("ja-JP")}
+          </p>
+        )}
         {workStoreId !== member.store_id && (
           <p className="mt-2 text-[11px] text-amber-600 font-semibold">
             ヘルプ勤務：この日の売上・成績は「{workStores.find((s) => s.id === workStoreId)?.name}」に計上されます。
@@ -548,8 +592,8 @@ export default function ReportForm({
           <h2 className="text-sm font-bold text-slate-800 mb-3">物販・継続・その他</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <NumberField label="物販売上（円）" color="orange" value={productSales} onChange={setProductSales} />
-            <NumberField label="新規の物販売上（円）" color="blue" value={newProductSales} onChange={setNewProductSales} />
             <NumberField label="継続契約（件）" color="emerald" value={renewalContracts} onChange={setRenewalContracts} />
+            <NumberField label="継続売上（円）" color="emerald" value={renewalSales} onChange={setRenewalSales} />
             <NumberField label="その他（円）" color="slate" value={otherAmount} onChange={setOtherAmount} />
           </div>
           <label className="block mt-3">
@@ -595,6 +639,12 @@ export default function ReportForm({
         </div>
         {newCount > 0 && (
           <p className="text-xs text-slate-500 mt-2">2回目予約転換率 <span className="font-bold text-emerald-600">{secondVisitRatePct}%</span></p>
+        )}
+        {isEsthe && (
+          <div className="grid grid-cols-2 gap-3 max-w-md mt-3 pt-3 border-t border-slate-100">
+            <NumberField label="新規の体験金額（円）" color="blue" value={newTrialAmount} onChange={setNewTrialAmount} />
+            <NumberField label="新規の物販売上（円）" color="blue" value={newProductSales} onChange={setNewProductSales} />
+          </div>
         )}
       </section>
 
@@ -679,8 +729,38 @@ export default function ReportForm({
                 </label>
               </div>
 
-              {/* 契約内容（契約ありのみ・エステ）: メニュー選択 + 回数/金額（選択・手入力両対応） */}
-              {m.outcome === "won" && isEsthe && (
+              {/* ヴァンヴェールの新規契約: メニュー選択は使わず、コース内容を手入力 */}
+              {m.outcome === "won" && isEsthe && isVembertChannel(m.channel) && (
+                <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5 space-y-2">
+                  <label className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-1">コース内容（手入力）</span>
+                    <input
+                      className="field-input !py-2"
+                      value={m.menu_label}
+                      onChange={(e) => updateMemo(i, { menu_label: e.target.value, menu_plan_id: "" })}
+                      placeholder="契約したコース内容を入力"
+                    />
+                  </label>
+                  {/* 金額は上部の「単価」欄で入力（ヴァンヴェールは単価入力の媒体） */}
+                  {!channels.find((c) => c.name === m.channel)?.unit_price && (
+                    <label className="block">
+                      <span className="block text-[11px] text-slate-500 mb-1">金額（円）</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        className="field-input !py-2"
+                        value={m.amount}
+                        onChange={(e) => updateMemo(i, { amount: e.target.value })}
+                        placeholder="0"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* 契約内容（契約ありのみ・エステ・ヴァンヴェール以外）: メニュー選択 + 回数/金額（選択・手入力両対応） */}
+              {m.outcome === "won" && isEsthe && !isVembertChannel(m.channel) && (
                 <div className="mb-2 rounded-lg bg-white/70 border border-emerald-100 p-2.5 space-y-2">
                   <div>
                     <p className="text-[11px] font-semibold text-slate-500 mb-1">契約メニュー</p>

@@ -13,6 +13,8 @@ import {
   Users,
   BookOpen,
   ShieldCheck,
+  Target,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +29,8 @@ const ICONS: Record<string, LucideIcon> = {
   "/concierge": Sparkles,
   "/members": Users,
   "/menu": BookOpen,
+  "/admin/goals": Target,
+  "/coaching": GraduationCap,
   "/admin/members": ShieldCheck,
 };
 

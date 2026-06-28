@@ -95,6 +95,8 @@ export type DailyReport = {
   product_sales: number; // 物販売上(円)
   new_product_sales: number; // 新規の物販売上(円)
   renewal_contracts: number; // 継続契約(件)
+  renewal_sales: number; // 継続売上(円)
+  new_trial_amount: number; // 新規の体験金額(円)
   other_amount: number; // その他(円)
   other_note: string | null; // その他メモ
 
@@ -182,6 +184,43 @@ export type AiFeedback = {
   encouragement: string | null;
   raw: unknown;
   created_at: string;
+};
+
+// ============================================================
+// スタッフ個人目標（店舗×月）
+// ============================================================
+export type StaffGoal = {
+  id: string;
+  member_id: string;
+  store_id: string;
+  month: string; // 'YYYY-MM'
+  new_sales_target: number; // 新規売上目標(円)
+  new_contract_rate_target: number; // 新規契約率目標(%)
+  product_target: number; // 物販目標(円)
+  existing_sales_target: number; // 既存売上目標(円)
+  created_at: string;
+  updated_at: string;
+};
+
+// ヴァンヴェール媒体名（新規契約はコース内容を手入力）。表記ゆれを許容。
+export const VEMBERT_CHANNELS = ["ヴァンヴェール", "ヴァンベール"];
+export function isVembertChannel(channel: string | null | undefined): boolean {
+  return !!channel && VEMBERT_CHANNELS.includes(channel.trim());
+}
+
+// 店舗責任者向け スタッフAIコーチング
+export type StaffCoaching = {
+  id: string;
+  member_id: string;
+  store_id: string;
+  month: string; // 'YYYY-MM'
+  model: string | null;
+  strengths: string | null;
+  issues: string | null;
+  coaching: string | null;
+  raw: unknown;
+  created_at: string;
+  updated_at: string;
 };
 
 // ============================================================
