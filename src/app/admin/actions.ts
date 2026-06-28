@@ -445,6 +445,14 @@ export async function setStaffGoal(args: {
   if (!/^\d{4}-\d{2}$/.test(args.month)) throw new Error("月の形式が不正です");
   await assertCanManageStore(actor, args.storeId);
   const admin = createAdminClient();
+  // 対象スタッフがこの店舗に在籍していること（UIの整合性をサーバー側でも担保）
+  const { data: tgt } = await admin
+    .from("members")
+    .select("id")
+    .eq("id", args.memberId)
+    .eq("store_id", args.storeId)
+    .maybeSingle();
+  if (!tgt) throw new Error("対象スタッフがこの店舗に在籍していません。");
   const { error } = await admin.from("staff_goals").upsert(
     {
       member_id: args.memberId,

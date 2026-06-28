@@ -241,17 +241,26 @@ export default async function DashboardPage({
 
   // ---- 個人目標（選択月）と達成状況 ----
   // 新規売上 = 新規契約金額 + 新規体験 + 新規物販 / 既存売上 = 継続 + 物販 + その他
-  function memberActuals(mid: string) {
-    const rs = reports.filter((r) => r.member_id === mid);
+  // storeId 指定時はその店舗の計上分のみで集計（目標は店舗×月のため、
+  // ヘルプ勤務で複数店舗に計上があるメンバーでも目標店舗の実績と突き合わせる）。
+  function memberActuals(mid: string, storeId?: string) {
+    const rs = reports.filter((r) => r.member_id === mid && (!storeId || r.store_id === storeId));
     const sum = (f: (r: DailyReport) => number) => rs.reduce((s, r) => s + f(r), 0);
-    const wonAmt = wonAmountByMember.get(mid) || 0;
+    // 契約金額は memo を店舗で絞って再集計（wonAmountByMember は全店舗合算のため）
+    const wonAmt = storeId
+      ? memoRows
+          .filter((m) => m.outcome === "won" && m.member_id === mid && rs.some((r) => r.id === m.report_id))
+          .reduce((s, m) => s + Number(m.amount || 0), 0)
+      : wonAmountByMember.get(mid) || 0;
     const newProduct = sum((r) => Number(r.new_product_sales || 0));
     const newTrial = sum((r) => Number(r.new_trial_amount || 0));
     const product = sum((r) => Number(r.product_sales || 0));
     const renewal = sum((r) => Number(r.renewal_sales || 0));
     const other = sum((r) => Number(r.other_amount || 0));
     const nw = sum((r) => r.new_count || 0);
-    const contract = wonByMember.get(mid) || 0;
+    const contract = storeId
+      ? memoRows.filter((m) => m.outcome === "won" && m.member_id === mid && rs.some((r) => r.id === m.report_id)).length
+      : wonByMember.get(mid) || 0;
     return {
       newSales: wonAmt + newTrial + newProduct,
       existingSales: renewal + product + other,
@@ -268,11 +277,15 @@ export default async function DashboardPage({
       .select("*")
       .eq("month", selectedMonth)
       .in("member_id", goalMemberIds);
+    // 同一メンバーが複数店舗の目標を持つ場合の優先度:
+    //   選択中の店舗 > メンバーの所属店舗 > それ以外（最初に見つかったもの）
+    const memberHomeStore = new Map(members.map((m) => [m.id, m.store_id]));
+    const goalScore = (g: StaffGoal) =>
+      (selectedStore && g.store_id === selectedStore ? 2 : 0) +
+      (g.store_id === memberHomeStore.get(g.member_id) ? 1 : 0);
     for (const g of (goalRows as StaffGoal[]) || []) {
-      // 同一メンバーが複数店舗の目標を持つ場合は対象店舗（スコープ内）のものを優先
-      if (!scopeStoreIds || scopeStoreIds.includes(g.store_id) || !goalsByMember.has(g.member_id)) {
-        goalsByMember.set(g.member_id, g);
-      }
+      const cur = goalsByMember.get(g.member_id);
+      if (!cur || goalScore(g) > goalScore(cur)) goalsByMember.set(g.member_id, g);
     }
   }
 
@@ -282,7 +295,7 @@ export default async function DashboardPage({
   function goalProgressFor(mid: string) {
     const g = goalsByMember.get(mid);
     if (!g) return null;
-    const a = memberActuals(mid);
+    const a = memberActuals(mid, g.store_id);
     return [
       { key: "newSales", label: "新規売上", actual: a.newSales, target: Number(g.new_sales_target || 0), fmt: "yen" as const },
       { key: "contractRate", label: "新規契約率", actual: Math.round(a.contractRate), target: Number(g.new_contract_rate_target || 0), fmt: "pct" as const },
