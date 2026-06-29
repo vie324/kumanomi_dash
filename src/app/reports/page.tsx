@@ -130,8 +130,14 @@ export default async function ReportsListPage({
               <tbody>
                 {reports.map((r) => (
                   <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="py-3 px-3 text-slate-600">{r.report_date}</td>
-                    <td className="py-3 px-3 font-semibold text-slate-700">{memberName(r.member_id)}</td>
+                    <td className="py-3 px-3 text-slate-600">
+                      <Link href={`/reports/${r.id}`} className="text-sise-600 hover:underline font-medium">
+                        {r.report_date}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-3 font-semibold text-slate-700">
+                      <Link href={`/reports/${r.id}`} className="hover:underline">{memberName(r.member_id)}</Link>
+                    </td>
                     <td className="py-3 px-2 text-right font-bold text-sise-600">{yen(Number(r.revenue))}</td>
                     <td className="py-3 px-2 text-center text-slate-600">
                       <span className="text-orange-600 font-semibold">{r.existing_treatments}</span>
